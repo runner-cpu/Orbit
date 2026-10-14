@@ -43,6 +43,25 @@ export interface PointLayerOptions {
   categories: Float32Array;
   /** 逐点尺寸倍率，默认全 1 */
   sizes?: Float32Array;
+  /**
+   * 类别配色表。默认用台面配色，但第二到四章要用同一套着色机制
+   * 表达不同的分类（碎片按高度层、按所属碎片群），因此开放覆盖。
+   * 传入 1–5 个色值即可，缺的位置沿用默认值。
+   */
+  palette?: number[];
+  /**
+   * 逐点发射年份。给了它才能用 setYearMax 做「按年份逐步出现」：
+   * 同一条点云，切到不同年份就只剩当年已在轨的那些，第二章需要这个。
+   * 不给则该能力自动关闭（阈值置为无穷大），不产生额外开销。
+   */
+  launchYears?: Float32Array;
+  /**
+   * 逐点辅助量，配合 setMetricRange 做筛选。
+   * 第三章按近地点分层、第四章按倾角分层都用它。
+   * 它只参与筛选，不参与着色：着色一律走 categories 的查表机制，
+   * 这样「哪一类被显示」与「哪一类是什么颜色」是两个独立开关。
+   */
+  metrics?: Float32Array;
   /** 基础点大小（参考距离处的屏幕像素） */
   baseSizePx?: number;
   /** 参考距离（场景单位），点在此距离处等于 baseSizePx */
@@ -51,6 +70,23 @@ export interface PointLayerOptions {
   opacity?: number;
   /** 亮度上限夹取，防止高密度区叠加后过曝 */
   maxSizePx?: number;
+  /**
+   * 逐点归一化寿命（0–1）。第五章用它把「按高度层的清除速度」落到具体点上：
+   * 拖动时间滑块时，低层的点先消失，高层的几乎不动。
+   *
+   * 语义：这个数就是「该点在多少年后消失」除以时间轴的跨度（200 年）。
+   * 1 表示在这 200 年里不会消失（观测期内该高度层没有可测的清除）。
+   *
+   * 为什么点用确定性哈希取样而不是 Math.random：画面必须在同一时刻永远一致。
+   * 哈希保证「哪一个点先消失」在每次渲染、每次刷新后都相同，
+   * 滑块来回拖动时不会出现点位闪烁。
+   */
+  lifetimes?: Float32Array;
+  /**
+   * 是否写入深度。点云之间需要互相遮挡时开，单层叠加时关。
+   * 默认关，配合加法混合得到「光点叠加」的观感。
+   */
+  depthWrite?: boolean;
 }
 
 /**
@@ -82,10 +118,30 @@ export class PointLayer {
     this.geometry.setAttribute('aCategory', new THREE.BufferAttribute(categories, 1));
     this.geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
     this.geometry.setAttribute('aEmphasis', new THREE.BufferAttribute(this.emphasis, 1));
+    this.geometry.setAttribute(
+      'aYear',
+      new THREE.BufferAttribute(opts.launchYears ?? new Float32Array(count), 1)
+    );
+    this.geometry.setAttribute(
+      'aMetric',
+      new THREE.BufferAttribute(opts.metrics ?? new Float32Array(count), 1)
+    );
+    this.geometry.setAttribute(
+      'aLifetime',
+      new THREE.BufferAttribute(opts.lifetimes ?? new Float32Array(count).fill(1), 1)
+    );
     // 手动管理包围球：位置会被整体替换，让 three 自动计算会产生额外开销
     this.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), SCENE_EARTH_RADIUS * 120);
 
-    const palette = PALETTE.category.map((hex) => new THREE.Color(hex));
+    // 配色表：调用方给的色值覆盖默认值，缺的位置沿用默认。
+    // 这样一个图层可以只用 3 个颜色（第四、五章），也可以继续用 5 个（第一章）。
+    const hexes = PALETTE.category.slice() as number[];
+    if (opts.palette) {
+      for (let i = 0; i < Math.min(opts.palette.length, hexes.length); i += 1) {
+        hexes[i] = opts.palette[i];
+      }
+    }
+    const palette = hexes.map((hex) => new THREE.Color(hex));
 
     this.material = new THREE.ShaderMaterial({
       uniforms: {
@@ -101,11 +157,21 @@ export class PointLayer {
         uPalette: { value: palette },
         // 未强调的点被压暗的程度（0 = 不压暗）
         uDim: { value: 0 },
+        // 年份上限：只显示发射年 ≤ 该值的点。默认 +∞ 表示不筛选。
+        uYearMax: { value: Number.POSITIVE_INFINITY },
+        // 辅助量筛选区间，默认全开
+        uMetricRange: { value: new THREE.Vector2(-1e9, 1e9) },
+        // 时间推进：aLifetime ≤ uHorizon 的点已经消失。
+        // 0 = 全部显示，1 = 到时间轴末端。第五章的时间滑块改这个值。
+        uHorizon: { value: 0 },
       },
       vertexShader: /* glsl */ `
         attribute float aCategory;
         attribute float aSize;
         attribute float aEmphasis;
+        attribute float aYear;
+        attribute float aMetric;
+        attribute float aLifetime;
 
         varying vec3 vColor;
         varying float vEmphasis;
@@ -117,6 +183,9 @@ export class PointLayer {
         uniform float uPixelRatio;
         uniform float uCategoryMix;
         uniform float uDim;
+        uniform float uYearMax;
+        uniform vec2 uMetricRange;
+        uniform float uHorizon;
         uniform vec3 uUniformColor;
         uniform vec3 uPalette[5];
 
@@ -135,6 +204,27 @@ export class PointLayer {
           vEmphasis = aEmphasis;
 
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
+
+          // 两处筛选都放在顶点着色器里做。
+          //
+          // 为什么不上传新的缓冲区：年份与高度层是连续变化的（时间轴拖动、
+          // 滑块调节），每次都重传一万多条数据会造成明显卡顿。
+          // 这里只改两个 uniform，把筛选变成一次常量比较，代价接近零。
+          //
+          // 用距离原点外推而不是直接丢掉顶点：gl_PointSize 置 0 在某些驱动上
+          // 仍会画出一个像素；推到裁剪空间之外是各平台一致的做法。
+          bool visible =
+            aYear <= uYearMax &&
+            aMetric >= uMetricRange.x &&
+            aMetric <= uMetricRange.y &&
+            aLifetime > uHorizon;
+
+          if (!visible) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+            gl_PointSize = 0.0;
+            return;
+          }
+
           gl_Position = projectionMatrix * mv;
 
           float dist = max(-mv.z, 0.001);
@@ -162,7 +252,7 @@ export class PointLayer {
         }
       `,
       transparent: true,
-      depthWrite: false,
+      depthWrite: opts.depthWrite ?? false,
       blending: THREE.AdditiveBlending,
     });
 
@@ -229,6 +319,57 @@ export class PointLayer {
   clearEmphasis(): void {
     this.emphasis.fill(1);
     (this.geometry.getAttribute('aEmphasis') as THREE.BufferAttribute).needsUpdate = true;
+  }
+
+  /**
+   * 只显示发射年 ≤ year 的点，其余隐藏。
+   * 第二章的时间轴用它：同一条点云，年份往前推就是「当年已在轨的那些」。
+   * 传 null 取消筛选。
+   */
+  setYearMax(year: number | null): void {
+    this.material.uniforms.uYearMax.value = year ?? Number.POSITIVE_INFINITY;
+  }
+
+  /**
+   * 只显示 metric 落在 [lo, hi] 内的点。
+   * 第三章按近地点分层、第四章按倾角分层用它。
+   * 传 null 取消筛选。
+   */
+  setMetricRange(lo: number | null, hi: number | null): void {
+    const v = this.material.uniforms.uMetricRange.value as THREE.Vector2;
+    v.set(lo ?? -1e9, hi ?? 1e9);
+  }
+
+  /**
+   * 时间推进：aLifetime ≤ years/span 的点视为已经消失。
+   * 传 0 表示全部保留，传 1 表示推到时间轴末端。
+   * 第五章的时间加速滑块用它，于是低层的点先消失、高层的几乎不动。
+   */
+  setHorizon(v: number): void {
+    this.material.uniforms.uHorizon.value = Math.max(0, Math.min(1, v));
+  }
+
+  /** 覆盖配色表。传 1–5 个色值，缺的位置保持原样。 */
+  setPalette(hexes: number[], startIndex = 0): void {
+    const arr = this.material.uniforms.uPalette.value as THREE.Color[];
+    for (let i = 0; i < hexes.length; i += 1) {
+      const k = startIndex + i;
+      if (k >= 0 && k < arr.length) arr[k].setHex(hexes[i]);
+    }
+  }
+
+  /** 当前的年份上限读数，供仪表与调试使用。 */
+  get yearMax(): number {
+    return this.material.uniforms.uYearMax.value as number;
+  }
+
+  /** 当前的时间推进量（0–1），供仪表与调试使用。 */
+  get horizon(): number {
+    return this.material.uniforms.uHorizon.value as number;
+  }
+
+  set pointSizeScale(v: number) {
+    this.material.uniforms.uBaseSizePx.value = v;
   }
 
   setOpacity(v: number): void {

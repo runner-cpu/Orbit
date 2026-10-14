@@ -1,0 +1,1353 @@
+{
+  "generatedAt": "2026-10-14T11:50:17.313Z",
+  "source": "CelesTrak SATCAT",
+  "sourceNote": "历史在轨数量由今天的编目记录倒推：对每个年份统计「发射年 ≤ 该年且（未再入或再入年 > 该年）」的记录数。已再入且已被移出编目的对象不在其中，因此历史值略低于当年的实时编目数。",
+  "firstYear": 1957,
+  "lastYear": 2026,
+  "medianDelta": 309,
+  "jumps": [
+    {
+      "year": 1965,
+      "delta": 1175,
+      "inOrbit": 2087,
+      "deltaDebris": 1048,
+      "debrisShare": 0.892
+    },
+    {
+      "year": 1982,
+      "delta": 2186,
+      "inOrbit": 10145,
+      "deltaDebris": 2073,
+      "debrisShare": 0.948
+    },
+    {
+      "year": 1986,
+      "delta": 830,
+      "inOrbit": 11895,
+      "deltaDebris": 709,
+      "debrisShare": 0.854
+    },
+    {
+      "year": 1993,
+      "delta": 1947,
+      "inOrbit": 14946,
+      "deltaDebris": 1834,
+      "debrisShare": 0.942
+    },
+    {
+      "year": 1994,
+      "delta": 1122,
+      "inOrbit": 16068,
+      "deltaDebris": 971,
+      "debrisShare": 0.865
+    },
+    {
+      "year": 1999,
+      "delta": 3862,
+      "inOrbit": 21423,
+      "deltaDebris": 3751,
+      "debrisShare": 0.971
+    },
+    {
+      "year": 2006,
+      "delta": 889,
+      "inOrbit": 22631,
+      "deltaDebris": 787,
+      "debrisShare": 0.885
+    },
+    {
+      "year": 2020,
+      "delta": 1006,
+      "inOrbit": 24994,
+      "deltaDebris": -137,
+      "debrisShare": -0.136
+    },
+    {
+      "year": 2021,
+      "delta": 1460,
+      "inOrbit": 26454,
+      "deltaDebris": -205,
+      "debrisShare": -0.14
+    },
+    {
+      "year": 2022,
+      "delta": 1039,
+      "inOrbit": 27493,
+      "deltaDebris": -1051,
+      "debrisShare": -1.012
+    },
+    {
+      "year": 2023,
+      "delta": 1061,
+      "inOrbit": 28554,
+      "deltaDebris": -1172,
+      "debrisShare": -1.105
+    },
+    {
+      "year": 2024,
+      "delta": 1452,
+      "inOrbit": 30006,
+      "deltaDebris": -252,
+      "debrisShare": -0.174
+    },
+    {
+      "year": 2025,
+      "delta": 2762,
+      "inOrbit": 32768,
+      "deltaDebris": -641,
+      "debrisShare": -0.232
+    },
+    {
+      "year": 2026,
+      "delta": 2560,
+      "inOrbit": 35328,
+      "deltaDebris": -169,
+      "debrisShare": -0.066
+    }
+  ],
+  "series": [
+    {
+      "year": 1957,
+      "inOrbit": 2,
+      "debris": 0,
+      "delta": 2,
+      "deltaDebris": 0
+    },
+    {
+      "year": 1958,
+      "inOrbit": 8,
+      "debris": 2,
+      "delta": 6,
+      "deltaDebris": 2
+    },
+    {
+      "year": 1959,
+      "inOrbit": 23,
+      "debris": 7,
+      "delta": 15,
+      "deltaDebris": 5
+    },
+    {
+      "year": 1960,
+      "inOrbit": 55,
+      "debris": 21,
+      "delta": 32,
+      "deltaDebris": 14
+    },
+    {
+      "year": 1961,
+      "inOrbit": 414,
+      "debris": 361,
+      "delta": 359,
+      "deltaDebris": 340
+    },
+    {
+      "year": 1962,
+      "inOrbit": 481,
+      "debris": 382,
+      "delta": 67,
+      "deltaDebris": 21
+    },
+    {
+      "year": 1963,
+      "inOrbit": 735,
+      "debris": 596,
+      "delta": 254,
+      "deltaDebris": 214
+    },
+    {
+      "year": 1964,
+      "inOrbit": 912,
+      "debris": 700,
+      "delta": 177,
+      "deltaDebris": 104
+    },
+    {
+      "year": 1965,
+      "inOrbit": 2087,
+      "debris": 1748,
+      "delta": 1175,
+      "deltaDebris": 1048
+    },
+    {
+      "year": 1966,
+      "inOrbit": 2372,
+      "debris": 1948,
+      "delta": 285,
+      "deltaDebris": 200
+    },
+    {
+      "year": 1967,
+      "inOrbit": 2503,
+      "debris": 1976,
+      "delta": 131,
+      "deltaDebris": 28
+    },
+    {
+      "year": 1968,
+      "inOrbit": 2894,
+      "debris": 2294,
+      "delta": 391,
+      "deltaDebris": 318
+    },
+    {
+      "year": 1969,
+      "inOrbit": 3203,
+      "debris": 2534,
+      "delta": 309,
+      "deltaDebris": 240
+    },
+    {
+      "year": 1970,
+      "inOrbit": 3827,
+      "debris": 3080,
+      "delta": 624,
+      "deltaDebris": 546
+    },
+    {
+      "year": 1971,
+      "inOrbit": 4134,
+      "debris": 3256,
+      "delta": 307,
+      "deltaDebris": 176
+    },
+    {
+      "year": 1972,
+      "inOrbit": 4428,
+      "debris": 3439,
+      "delta": 294,
+      "deltaDebris": 183
+    },
+    {
+      "year": 1973,
+      "inOrbit": 4762,
+      "debris": 3664,
+      "delta": 334,
+      "deltaDebris": 225
+    },
+    {
+      "year": 1974,
+      "inOrbit": 5111,
+      "debris": 3909,
+      "delta": 349,
+      "deltaDebris": 245
+    },
+    {
+      "year": 1975,
+      "inOrbit": 5822,
+      "debris": 4468,
+      "delta": 711,
+      "deltaDebris": 559
+    },
+    {
+      "year": 1976,
+      "inOrbit": 6420,
+      "debris": 4914,
+      "delta": 598,
+      "deltaDebris": 446
+    },
+    {
+      "year": 1977,
+      "inOrbit": 6846,
+      "debris": 5206,
+      "delta": 426,
+      "deltaDebris": 292
+    },
+    {
+      "year": 1978,
+      "inOrbit": 7102,
+      "debris": 5335,
+      "delta": 256,
+      "deltaDebris": 129
+    },
+    {
+      "year": 1979,
+      "inOrbit": 7340,
+      "debris": 5519,
+      "delta": 238,
+      "deltaDebris": 184
+    },
+    {
+      "year": 1980,
+      "inOrbit": 7410,
+      "debris": 5531,
+      "delta": 70,
+      "deltaDebris": 12
+    },
+    {
+      "year": 1981,
+      "inOrbit": 7959,
+      "debris": 5960,
+      "delta": 549,
+      "deltaDebris": 429
+    },
+    {
+      "year": 1982,
+      "inOrbit": 10145,
+      "debris": 8033,
+      "delta": 2186,
+      "deltaDebris": 2073
+    },
+    {
+      "year": 1983,
+      "inOrbit": 10531,
+      "debris": 8268,
+      "delta": 386,
+      "deltaDebris": 235
+    },
+    {
+      "year": 1984,
+      "inOrbit": 10723,
+      "debris": 8280,
+      "delta": 192,
+      "deltaDebris": 12
+    },
+    {
+      "year": 1985,
+      "inOrbit": 11065,
+      "debris": 8440,
+      "delta": 342,
+      "deltaDebris": 160
+    },
+    {
+      "year": 1986,
+      "inOrbit": 11895,
+      "debris": 9149,
+      "delta": 830,
+      "deltaDebris": 709
+    },
+    {
+      "year": 1987,
+      "inOrbit": 12431,
+      "debris": 9547,
+      "delta": 536,
+      "deltaDebris": 398
+    },
+    {
+      "year": 1988,
+      "inOrbit": 12315,
+      "debris": 9320,
+      "delta": -116,
+      "deltaDebris": -227
+    },
+    {
+      "year": 1989,
+      "inOrbit": 12204,
+      "debris": 9118,
+      "delta": -111,
+      "deltaDebris": -202
+    },
+    {
+      "year": 1990,
+      "inOrbit": 12345,
+      "debris": 9093,
+      "delta": 141,
+      "deltaDebris": -25
+    },
+    {
+      "year": 1991,
+      "inOrbit": 12604,
+      "debris": 9242,
+      "delta": 259,
+      "deltaDebris": 149
+    },
+    {
+      "year": 1992,
+      "inOrbit": 12999,
+      "debris": 9516,
+      "delta": 395,
+      "deltaDebris": 274
+    },
+    {
+      "year": 1993,
+      "inOrbit": 14946,
+      "debris": 11350,
+      "delta": 1947,
+      "deltaDebris": 1834
+    },
+    {
+      "year": 1994,
+      "inOrbit": 16068,
+      "debris": 12321,
+      "delta": 1122,
+      "deltaDebris": 971
+    },
+    {
+      "year": 1995,
+      "inOrbit": 16433,
+      "debris": 12580,
+      "delta": 365,
+      "deltaDebris": 259
+    },
+    {
+      "year": 1996,
+      "inOrbit": 16441,
+      "debris": 12478,
+      "delta": 8,
+      "deltaDebris": -102
+    },
+    {
+      "year": 1997,
+      "inOrbit": 17046,
+      "debris": 12913,
+      "delta": 605,
+      "deltaDebris": 435
+    },
+    {
+      "year": 1998,
+      "inOrbit": 17561,
+      "debris": 12862,
+      "delta": 515,
+      "deltaDebris": -51
+    },
+    {
+      "year": 1999,
+      "inOrbit": 21423,
+      "debris": 16613,
+      "delta": 3862,
+      "deltaDebris": 3751
+    },
+    {
+      "year": 2000,
+      "inOrbit": 21750,
+      "debris": 16848,
+      "delta": 327,
+      "deltaDebris": 235
+    },
+    {
+      "year": 2001,
+      "inOrbit": 21920,
+      "debris": 16994,
+      "delta": 170,
+      "deltaDebris": 146
+    },
+    {
+      "year": 2002,
+      "inOrbit": 21806,
+      "debris": 16831,
+      "delta": -114,
+      "deltaDebris": -163
+    },
+    {
+      "year": 2003,
+      "inOrbit": 21745,
+      "debris": 16678,
+      "delta": -61,
+      "deltaDebris": -153
+    },
+    {
+      "year": 2004,
+      "inOrbit": 21761,
+      "debris": 16622,
+      "delta": 16,
+      "deltaDebris": -56
+    },
+    {
+      "year": 2005,
+      "inOrbit": 21742,
+      "debris": 16538,
+      "delta": -19,
+      "deltaDebris": -84
+    },
+    {
+      "year": 2006,
+      "inOrbit": 22631,
+      "debris": 17325,
+      "delta": 889,
+      "deltaDebris": 787
+    },
+    {
+      "year": 2007,
+      "inOrbit": 22792,
+      "debris": 17364,
+      "delta": 161,
+      "deltaDebris": 39
+    },
+    {
+      "year": 2008,
+      "inOrbit": 22462,
+      "debris": 16918,
+      "delta": -330,
+      "deltaDebris": -446
+    },
+    {
+      "year": 2009,
+      "inOrbit": 22543,
+      "debris": 16864,
+      "delta": 81,
+      "deltaDebris": -54
+    },
+    {
+      "year": 2010,
+      "inOrbit": 22572,
+      "debris": 16766,
+      "delta": 29,
+      "deltaDebris": -98
+    },
+    {
+      "year": 2011,
+      "inOrbit": 22733,
+      "debris": 16812,
+      "delta": 161,
+      "deltaDebris": 46
+    },
+    {
+      "year": 2012,
+      "inOrbit": 22731,
+      "debris": 16694,
+      "delta": -2,
+      "deltaDebris": -118
+    },
+    {
+      "year": 2013,
+      "inOrbit": 22707,
+      "debris": 16478,
+      "delta": -24,
+      "deltaDebris": -216
+    },
+    {
+      "year": 2014,
+      "inOrbit": 22566,
+      "debris": 16203,
+      "delta": -141,
+      "deltaDebris": -275
+    },
+    {
+      "year": 2015,
+      "inOrbit": 22421,
+      "debris": 15921,
+      "delta": -145,
+      "deltaDebris": -282
+    },
+    {
+      "year": 2016,
+      "inOrbit": 22507,
+      "debris": 15864,
+      "delta": 86,
+      "deltaDebris": -57
+    },
+    {
+      "year": 2017,
+      "inOrbit": 22826,
+      "debris": 15813,
+      "delta": 319,
+      "deltaDebris": -51
+    },
+    {
+      "year": 2018,
+      "inOrbit": 23537,
+      "debris": 16136,
+      "delta": 711,
+      "deltaDebris": 323
+    },
+    {
+      "year": 2019,
+      "inOrbit": 23988,
+      "debris": 16183,
+      "delta": 451,
+      "deltaDebris": 47
+    },
+    {
+      "year": 2020,
+      "inOrbit": 24994,
+      "debris": 16046,
+      "delta": 1006,
+      "deltaDebris": -137
+    },
+    {
+      "year": 2021,
+      "inOrbit": 26454,
+      "debris": 15841,
+      "delta": 1460,
+      "deltaDebris": -205
+    },
+    {
+      "year": 2022,
+      "inOrbit": 27493,
+      "debris": 14790,
+      "delta": 1039,
+      "deltaDebris": -1051
+    },
+    {
+      "year": 2023,
+      "inOrbit": 28554,
+      "debris": 13618,
+      "delta": 1061,
+      "deltaDebris": -1172
+    },
+    {
+      "year": 2024,
+      "inOrbit": 30006,
+      "debris": 13366,
+      "delta": 1452,
+      "deltaDebris": -252
+    },
+    {
+      "year": 2025,
+      "inOrbit": 32768,
+      "debris": 12725,
+      "delta": 2762,
+      "deltaDebris": -641
+    },
+    {
+      "year": 2026,
+      "inOrbit": 35328,
+      "debris": 12556,
+      "delta": 2560,
+      "deltaDebris": -169
+    }
+  ],
+  "families": [
+    {
+      "key": "fengyun1c",
+      "label": "风云一号C碎片",
+      "event": "2007-01-11",
+      "total": 3531,
+      "alive": 2311,
+      "decayed": 1220,
+      "decayedShare": 34.6,
+      "remaining": 2311,
+      "remainingShare": 65.4,
+      "decay": [
+        {
+          "year": 2007,
+          "decayed": 22,
+          "cumulative": 22,
+          "remaining": 3509
+        },
+        {
+          "year": 2008,
+          "decayed": 22,
+          "cumulative": 44,
+          "remaining": 3487
+        },
+        {
+          "year": 2009,
+          "decayed": 23,
+          "cumulative": 67,
+          "remaining": 3464
+        },
+        {
+          "year": 2010,
+          "decayed": 39,
+          "cumulative": 106,
+          "remaining": 3425
+        },
+        {
+          "year": 2011,
+          "decayed": 108,
+          "cumulative": 214,
+          "remaining": 3317
+        },
+        {
+          "year": 2012,
+          "decayed": 116,
+          "cumulative": 330,
+          "remaining": 3201
+        },
+        {
+          "year": 2013,
+          "decayed": 63,
+          "cumulative": 393,
+          "remaining": 3138
+        },
+        {
+          "year": 2014,
+          "decayed": 118,
+          "cumulative": 511,
+          "remaining": 3020
+        },
+        {
+          "year": 2015,
+          "decayed": 76,
+          "cumulative": 587,
+          "remaining": 2944
+        },
+        {
+          "year": 2016,
+          "decayed": 26,
+          "cumulative": 613,
+          "remaining": 2918
+        },
+        {
+          "year": 2017,
+          "decayed": 16,
+          "cumulative": 629,
+          "remaining": 2902
+        },
+        {
+          "year": 2018,
+          "decayed": 15,
+          "cumulative": 644,
+          "remaining": 2887
+        },
+        {
+          "year": 2019,
+          "decayed": 13,
+          "cumulative": 657,
+          "remaining": 2874
+        },
+        {
+          "year": 2020,
+          "decayed": 11,
+          "cumulative": 668,
+          "remaining": 2863
+        },
+        {
+          "year": 2021,
+          "decayed": 26,
+          "cumulative": 694,
+          "remaining": 2837
+        },
+        {
+          "year": 2022,
+          "decayed": 73,
+          "cumulative": 767,
+          "remaining": 2764
+        },
+        {
+          "year": 2023,
+          "decayed": 142,
+          "cumulative": 909,
+          "remaining": 2622
+        },
+        {
+          "year": 2024,
+          "decayed": 172,
+          "cumulative": 1081,
+          "remaining": 2450
+        },
+        {
+          "year": 2025,
+          "decayed": 100,
+          "cumulative": 1181,
+          "remaining": 2350
+        },
+        {
+          "year": 2026,
+          "decayed": 39,
+          "cumulative": 1220,
+          "remaining": 2311
+        }
+      ]
+    },
+    {
+      "key": "cosmos2251",
+      "label": "宇宙2251碎片",
+      "event": "2009-02-10",
+      "total": 1714,
+      "alive": 610,
+      "decayed": 1104,
+      "decayedShare": 64.4,
+      "remaining": 610,
+      "remainingShare": 35.6,
+      "decay": [
+        {
+          "year": 2009,
+          "decayed": 40,
+          "cumulative": 40,
+          "remaining": 1674
+        },
+        {
+          "year": 2010,
+          "decayed": 35,
+          "cumulative": 75,
+          "remaining": 1639
+        },
+        {
+          "year": 2011,
+          "decayed": 102,
+          "cumulative": 177,
+          "remaining": 1537
+        },
+        {
+          "year": 2012,
+          "decayed": 91,
+          "cumulative": 268,
+          "remaining": 1446
+        },
+        {
+          "year": 2013,
+          "decayed": 74,
+          "cumulative": 342,
+          "remaining": 1372
+        },
+        {
+          "year": 2014,
+          "decayed": 133,
+          "cumulative": 475,
+          "remaining": 1239
+        },
+        {
+          "year": 2015,
+          "decayed": 78,
+          "cumulative": 553,
+          "remaining": 1161
+        },
+        {
+          "year": 2016,
+          "decayed": 26,
+          "cumulative": 579,
+          "remaining": 1135
+        },
+        {
+          "year": 2017,
+          "decayed": 14,
+          "cumulative": 593,
+          "remaining": 1121
+        },
+        {
+          "year": 2018,
+          "decayed": 15,
+          "cumulative": 608,
+          "remaining": 1106
+        },
+        {
+          "year": 2019,
+          "decayed": 5,
+          "cumulative": 613,
+          "remaining": 1101
+        },
+        {
+          "year": 2020,
+          "decayed": 10,
+          "cumulative": 623,
+          "remaining": 1091
+        },
+        {
+          "year": 2021,
+          "decayed": 21,
+          "cumulative": 644,
+          "remaining": 1070
+        },
+        {
+          "year": 2022,
+          "decayed": 57,
+          "cumulative": 701,
+          "remaining": 1013
+        },
+        {
+          "year": 2023,
+          "decayed": 110,
+          "cumulative": 811,
+          "remaining": 903
+        },
+        {
+          "year": 2024,
+          "decayed": 152,
+          "cumulative": 963,
+          "remaining": 751
+        },
+        {
+          "year": 2025,
+          "decayed": 108,
+          "cumulative": 1071,
+          "remaining": 643
+        },
+        {
+          "year": 2026,
+          "decayed": 33,
+          "cumulative": 1104,
+          "remaining": 610
+        }
+      ]
+    },
+    {
+      "key": "iridium33",
+      "label": "铱星33碎片",
+      "event": "2009-02-10",
+      "total": 656,
+      "alive": 115,
+      "decayed": 541,
+      "decayedShare": 82.5,
+      "remaining": 115,
+      "remainingShare": 17.5,
+      "decay": [
+        {
+          "year": 2009,
+          "decayed": 17,
+          "cumulative": 17,
+          "remaining": 639
+        },
+        {
+          "year": 2010,
+          "decayed": 20,
+          "cumulative": 37,
+          "remaining": 619
+        },
+        {
+          "year": 2011,
+          "decayed": 40,
+          "cumulative": 77,
+          "remaining": 579
+        },
+        {
+          "year": 2012,
+          "decayed": 42,
+          "cumulative": 119,
+          "remaining": 537
+        },
+        {
+          "year": 2013,
+          "decayed": 53,
+          "cumulative": 172,
+          "remaining": 484
+        },
+        {
+          "year": 2014,
+          "decayed": 61,
+          "cumulative": 233,
+          "remaining": 423
+        },
+        {
+          "year": 2015,
+          "decayed": 35,
+          "cumulative": 268,
+          "remaining": 388
+        },
+        {
+          "year": 2016,
+          "decayed": 17,
+          "cumulative": 285,
+          "remaining": 371
+        },
+        {
+          "year": 2017,
+          "decayed": 10,
+          "cumulative": 295,
+          "remaining": 361
+        },
+        {
+          "year": 2018,
+          "decayed": 7,
+          "cumulative": 302,
+          "remaining": 354
+        },
+        {
+          "year": 2019,
+          "decayed": 4,
+          "cumulative": 306,
+          "remaining": 350
+        },
+        {
+          "year": 2020,
+          "decayed": 4,
+          "cumulative": 310,
+          "remaining": 346
+        },
+        {
+          "year": 2021,
+          "decayed": 7,
+          "cumulative": 317,
+          "remaining": 339
+        },
+        {
+          "year": 2022,
+          "decayed": 47,
+          "cumulative": 364,
+          "remaining": 292
+        },
+        {
+          "year": 2023,
+          "decayed": 81,
+          "cumulative": 445,
+          "remaining": 211
+        },
+        {
+          "year": 2024,
+          "decayed": 63,
+          "cumulative": 508,
+          "remaining": 148
+        },
+        {
+          "year": 2025,
+          "decayed": 28,
+          "cumulative": 536,
+          "remaining": 120
+        },
+        {
+          "year": 2026,
+          "decayed": 5,
+          "cumulative": 541,
+          "remaining": 115
+        }
+      ]
+    }
+  ],
+  "debrisSummary": {
+    "total": 5901,
+    "alive": 3036,
+    "decayed": 2865,
+    "decayedShare": 48.6,
+    "remainingShare": 51.4
+  },
+  "bandStats": [
+    {
+      "label": "400 km 以下",
+      "lo": 0,
+      "hi": 400,
+      "alive": 6,
+      "decayed": 691,
+      "total": 697,
+      "removedShare": 99.1
+    },
+    {
+      "label": "400–500 km",
+      "lo": 400,
+      "hi": 500,
+      "alive": 40,
+      "decayed": 235,
+      "total": 275,
+      "removedShare": 85.5
+    },
+    {
+      "label": "500–600 km",
+      "lo": 500,
+      "hi": 600,
+      "alive": 163,
+      "decayed": 117,
+      "total": 280,
+      "removedShare": 41.8
+    },
+    {
+      "label": "600–700 km",
+      "lo": 600,
+      "hi": 700,
+      "alive": 406,
+      "decayed": 134,
+      "total": 540,
+      "removedShare": 24.8
+    },
+    {
+      "label": "700–750 km",
+      "lo": 700,
+      "hi": 750,
+      "alive": 361,
+      "decayed": 30,
+      "total": 391,
+      "removedShare": 7.7
+    },
+    {
+      "label": "750–800 km",
+      "lo": 750,
+      "hi": 800,
+      "alive": 638,
+      "decayed": 10,
+      "total": 648,
+      "removedShare": 1.5
+    },
+    {
+      "label": "800–850 km",
+      "lo": 800,
+      "hi": 850,
+      "alive": 644,
+      "decayed": 1,
+      "total": 645,
+      "removedShare": 0.2
+    },
+    {
+      "label": "850–900 km",
+      "lo": 850,
+      "hi": 900,
+      "alive": 52,
+      "decayed": 0,
+      "total": 52,
+      "removedShare": 0
+    },
+    {
+      "label": "900 km 以上",
+      "lo": 900,
+      "hi": null,
+      "alive": 1,
+      "decayed": 1,
+      "total": 2,
+      "removedShare": 50
+    }
+  ],
+  "bandTotal": 3530,
+  "bandDecay": [
+    {
+      "label": "400 km 以下",
+      "lo": 0,
+      "hi": 400,
+      "initial": 697,
+      "alive": 6,
+      "decayed": 691,
+      "removedShare": 99.1,
+      "tauYears": 9,
+      "note": null
+    },
+    {
+      "label": "400–500 km",
+      "lo": 400,
+      "hi": 500,
+      "initial": 275,
+      "alive": 40,
+      "decayed": 235,
+      "removedShare": 85.5,
+      "tauYears": 10,
+      "note": null
+    },
+    {
+      "label": "500–600 km",
+      "lo": 500,
+      "hi": 600,
+      "initial": 280,
+      "alive": 163,
+      "decayed": 117,
+      "removedShare": 41.8,
+      "tauYears": 33,
+      "note": null
+    },
+    {
+      "label": "600–700 km",
+      "lo": 600,
+      "hi": 700,
+      "initial": 540,
+      "alive": 406,
+      "decayed": 134,
+      "removedShare": 24.8,
+      "tauYears": 67,
+      "note": null
+    },
+    {
+      "label": "700–750 km",
+      "lo": 700,
+      "hi": 750,
+      "initial": 391,
+      "alive": 361,
+      "decayed": 30,
+      "removedShare": 7.7,
+      "tauYears": 275,
+      "note": null
+    },
+    {
+      "label": "750–800 km",
+      "lo": 750,
+      "hi": 800,
+      "initial": 648,
+      "alive": 638,
+      "decayed": 10,
+      "removedShare": 1.5,
+      "tauYears": 1645,
+      "note": null
+    },
+    {
+      "label": "800–850 km",
+      "lo": 800,
+      "hi": 850,
+      "initial": 645,
+      "alive": 644,
+      "decayed": 1,
+      "removedShare": 0.2,
+      "tauYears": null,
+      "note": "观测期内清除过少，无法估计"
+    },
+    {
+      "label": "850–900 km",
+      "lo": 850,
+      "hi": 900,
+      "initial": 52,
+      "alive": 52,
+      "decayed": 0,
+      "removedShare": 0,
+      "tauYears": null,
+      "note": "观测期内清除过少，无法估计"
+    },
+    {
+      "label": "900 km 以上",
+      "lo": 900,
+      "hi": null,
+      "initial": 2,
+      "alive": 1,
+      "decayed": 1,
+      "removedShare": 50,
+      "tauYears": null,
+      "note": "观测期内清除过少，无法估计"
+    }
+  ],
+  "projections": [
+    {
+      "years": 50,
+      "bands": [
+        {
+          "label": "400 km 以下",
+          "remaining": 0,
+          "share": 0,
+          "estimated": true
+        },
+        {
+          "label": "400–500 km",
+          "remaining": 0,
+          "share": 0,
+          "estimated": true
+        },
+        {
+          "label": "500–600 km",
+          "remaining": 36,
+          "share": 12.9,
+          "estimated": true
+        },
+        {
+          "label": "600–700 km",
+          "remaining": 192,
+          "share": 35.6,
+          "estimated": true
+        },
+        {
+          "label": "700–750 km",
+          "remaining": 301,
+          "share": 77,
+          "estimated": true
+        },
+        {
+          "label": "750–800 km",
+          "remaining": 619,
+          "share": 95.5,
+          "estimated": true
+        },
+        {
+          "label": "800–850 km",
+          "remaining": 644,
+          "share": 99.8,
+          "estimated": false
+        },
+        {
+          "label": "850–900 km",
+          "remaining": 52,
+          "share": 100,
+          "estimated": false
+        },
+        {
+          "label": "900 km 以上",
+          "remaining": 1,
+          "share": 50,
+          "estimated": false
+        }
+      ],
+      "totalRemaining": 1845
+    },
+    {
+      "years": 100,
+      "bands": [
+        {
+          "label": "400 km 以下",
+          "remaining": 0,
+          "share": 0,
+          "estimated": true
+        },
+        {
+          "label": "400–500 km",
+          "remaining": 0,
+          "share": 0,
+          "estimated": true
+        },
+        {
+          "label": "500–600 km",
+          "remaining": 8,
+          "share": 2.9,
+          "estimated": true
+        },
+        {
+          "label": "600–700 km",
+          "remaining": 91,
+          "share": 16.9,
+          "estimated": true
+        },
+        {
+          "label": "700–750 km",
+          "remaining": 251,
+          "share": 64.2,
+          "estimated": true
+        },
+        {
+          "label": "750–800 km",
+          "remaining": 600,
+          "share": 92.6,
+          "estimated": true
+        },
+        {
+          "label": "800–850 km",
+          "remaining": 644,
+          "share": 99.8,
+          "estimated": false
+        },
+        {
+          "label": "850–900 km",
+          "remaining": 52,
+          "share": 100,
+          "estimated": false
+        },
+        {
+          "label": "900 km 以上",
+          "remaining": 1,
+          "share": 50,
+          "estimated": false
+        }
+      ],
+      "totalRemaining": 1647
+    },
+    {
+      "years": 200,
+      "bands": [
+        {
+          "label": "400 km 以下",
+          "remaining": 0,
+          "share": 0,
+          "estimated": true
+        },
+        {
+          "label": "400–500 km",
+          "remaining": 0,
+          "share": 0,
+          "estimated": true
+        },
+        {
+          "label": "500–600 km",
+          "remaining": 0,
+          "share": 0,
+          "estimated": true
+        },
+        {
+          "label": "600–700 km",
+          "remaining": 21,
+          "share": 3.9,
+          "estimated": true
+        },
+        {
+          "label": "700–750 km",
+          "remaining": 174,
+          "share": 44.5,
+          "estimated": true
+        },
+        {
+          "label": "750–800 km",
+          "remaining": 565,
+          "share": 87.2,
+          "estimated": true
+        },
+        {
+          "label": "800–850 km",
+          "remaining": 644,
+          "share": 99.8,
+          "estimated": false
+        },
+        {
+          "label": "850–900 km",
+          "remaining": 52,
+          "share": 100,
+          "estimated": false
+        },
+        {
+          "label": "900 km 以上",
+          "remaining": 1,
+          "share": 50,
+          "estimated": false
+        }
+      ],
+      "totalRemaining": 1457
+    }
+  ],
+  "bandNote": "分层依据为编目记录中的近地点；已再入对象的近地点是它最后一次被记录到的轨道，因此该表回答的是「哪一层更容易被清除」，不是「碎片诞生时的高度分布」。",
+  "projectionNote": "时间常数由 2007–2026 年的实测在轨数量按指数衰减拟合得出（最小二乘），属于拟合外推而非轨道演化仿真；其用途是给出量级差异，不是预测具体某一年。"
+}

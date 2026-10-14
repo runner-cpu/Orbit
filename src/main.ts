@@ -2,15 +2,15 @@
  * 《轨道之上》应用入口。
  *
  * 装配顺序：
- *   1. 建三维场景（地球、点云、相机）
- *   2. 载入离线数据
+ *   1. 建三维场景（地球、编目点云、碎片点云、相机）
+ *   2. 载入离线数据（编目、碎片、历史序列）
  *   3. 用数据生成文案 DOM（文案里的数字全部来自数据，不写死）
  *   4. 订阅滚动叙事，把步骤状态转成场景参数
  *   5. 起渲染循环，并驱动仪表读数
  *
- * 目前接入的是第一章与尾页「数据与方法」。第二至五章的驱动模块
- * 按同样接口（chapters/ 下一个模块 + content/ 下一个文案模块）接入，
- * 主循环与引擎层不需要改动。
+ * 章节接入方式：每章一个 content/chapterN.ts（文案）+ 共用 chapters/scenes.ts
+ * （镜头与图层状态表）。主循环与引擎层不认识任何具体章节，
+ * 新增章节只需往场景表里加键、往步骤表里加项。
  */
 import * as THREE from 'three';
 import './style.css';
@@ -19,13 +19,26 @@ import { createGlobe, SCENE_EARTH_RADIUS } from './core/globe';
 import { PointLayer } from './core/pointCloud';
 import { createCameraRig } from './core/camera';
 import { createScrollStory, type StoryStep } from './core/scrollStory';
-import { loadSceneData, type DebrisMeta } from './core/data';
-import { cameraDistanceKm, int, isoDate } from './core/format';
+import { loadSceneData, loadDebrisData, loadHistoryData } from './core/data';
+import { cameraDistanceKm, int, isoDate, scaled } from './core/format';
 
 import { buildFigures, type DebrisGroupFigures } from './content/figures';
-import { CHAPTER_ONE_STEPS } from './content/chapter1';
+import { CHAPTER_ONE_STEPS, type StepCopy } from './content/chapter1';
+import { CHAPTER_TWO_STEPS } from './content/chapter2';
+import { CHAPTER_THREE_STEPS } from './content/chapter3';
+import { CHAPTER_FOUR_STEPS } from './content/chapter4';
+import { CHAPTER_FIVE_STEPS } from './content/chapter5';
 import { renderMethods, methodSpecs } from './content/methods';
-import { createChapterOneScene } from './chapters/ch1-now';
+import { createChapterScenes, DEBRIS_PALETTE } from './chapters/scenes';
+
+/** 全部章节的步骤，按叙事顺序拼接。刻度条与滚动区间都从这里来。 */
+const ALL_STEPS: StepCopy[] = [
+  ...CHAPTER_ONE_STEPS,
+  ...CHAPTER_TWO_STEPS,
+  ...CHAPTER_THREE_STEPS,
+  ...CHAPTER_FOUR_STEPS,
+  ...CHAPTER_FIVE_STEPS,
+];
 
 /** 载入遮罩上的进度文字 */
 function setBootStatus(text: string): void {
@@ -67,7 +80,7 @@ function mountSteps(steps: { id: string; html: string }[]): HTMLElement[] {
   return created;
 }
 
-/** 底部章节刻度 */
+/** 底部章节刻度。步骤变多之后按章节分组，避免刻度挤成一条线。 */
 function mountStageTicks(
   steps: { id: string; nav: string }[],
   onJump: (id: string) => void
@@ -116,21 +129,28 @@ async function main(): Promise<void> {
 
   // ---------- 数据 ----------
   setBootStatus('正在载入轨道编目');
-  const data = await loadSceneData();
+  const [data, debris, history] = await Promise.all([
+    loadSceneData(),
+    loadDebrisData(),
+    loadHistoryData(),
+  ]);
 
   setBootStatus('正在解析海岸线');
-  void globe.loadCoastlines('data/coastlines.json').catch((err) => {
-    // 海岸线只影响地理参照，缺失不应阻断作品
-    console.warn('海岸线加载失败，地理参照层将保持空白：', err);
-  });
-
-  const debrisMetaRes = await fetch('data/debris-meta.json');
-  if (!debrisMetaRes.ok) throw new Error(`debris-meta.json 加载失败：HTTP ${debrisMetaRes.status}`);
-  const debrisMeta = (await debrisMetaRes.json()) as DebrisMeta;
+  // 海岸线只影响地理参照，缺失不应阻断作品，因此单独 catch；
+  // 它同样计入运行时数据量，所以把字节数留下来。
+  let coastlineBytes = 0;
+  const coastlineReady = globe
+    .loadCoastlines('data/coastlines.json')
+    .then((bytes) => {
+      coastlineBytes = bytes;
+    })
+    .catch((err) => {
+      console.warn('海岸线加载失败，地理参照层将保持空白：', err);
+    });
 
   setBootStatus('正在铺开点云');
 
-  // ---------- 点云 ----------
+  // ---------- 编目点云 ----------
   const { catalog, catalogMeta, offset } = data;
   const stride = catalogMeta.stride;
   const count = catalogMeta.count;
@@ -139,12 +159,18 @@ async function main(): Promise<void> {
   const categories = new Float32Array(count);
   const sizes = new Float32Array(count);
   const positions = new Float32Array(count * 3);
+  const launchYears = new Float32Array(count);
   for (let i = 0; i < count; i += 1) {
     const o = i * stride;
     categories[i] = catalog[o + offset.category];
     positions[i * 3] = catalog[o + offset.x];
     positions[i * 3 + 1] = catalog[o + offset.y];
     positions[i * 3 + 2] = catalog[o + offset.z];
+    // 年份用于第二章的「按时间逐步出现」。没有年份的对象给一个极大的
+    // 负数，任何时间切片都会把它们包含进来——它们确实无法定年，
+    // 但也不该被静默丢弃。
+    const y = catalog[o + offset.launchYear];
+    launchYears[i] = y > 0 ? y : -1e6;
     // 尺寸按对象类别微调：碎片与残骸略小，载荷略大，
     // 让「哪一类是主体」在密度高的区域也能分辨
     const cat = catalog[o + offset.category];
@@ -155,6 +181,7 @@ async function main(): Promise<void> {
     count,
     categories,
     sizes,
+    launchYears,
     // 点保持小而离散：16,000 个点若各自画大，叠加后会糊成一团。
     // 目标观感是「能数得清的光点」，而不是一片发光的云。
     baseSizePx: 1.35,
@@ -165,8 +192,90 @@ async function main(): Promise<void> {
   layer.updateFromEcef(positions);
   scene.add(layer.points);
 
+  // ---------- 碎片点云 ----------
+  //
+  // 与编目点云分开成两个图层，而不是合并成一个：
+  //   着色规则不同（编目按对象类别，碎片按所属碎片群）
+  //   筛选维度不同（编目按发射年，碎片按群与寿命）
+  //   章节切换时需要独立显隐，合并后每次都要重传两万条属性。
+  // 两个图层共享同一套着色器，开销只是多一次 draw call。
+  const dCount = debris.meta.total;
+  const dCategories = new Float32Array(dCount);
+  const dPositions = new Float32Array(dCount * 3);
+  const dMetrics = new Float32Array(dCount); // 复用为「近地点」，第三、四章按它筛选
+  const dSizes = new Float32Array(dCount);
+  const dLifetimes = new Float32Array(dCount);
+
+  // 第五章的时间外推：给每个碎片分配一个归一化寿命。
+  //
+  // 做法：按近地点落到 history.json 里的高度层，取该层拟合出的时间常数 τ，
+  // 然后对每一个碎片抽一个 N(τ) 分布下的寿命 t = -τ·ln(u)（u 为确定性哈希）。
+  // 这样图层在整体上会精确复现那一层的实测衰减比例，而单个点又是离散的。
+  //
+  // τ 为 null 的层（800 公里以上）给一个大于时间轴跨度的常数，
+  // 表示在这 200 年里不会消失——这正是页面上要表达的那件事。
+  const MAX_HORIZON = 200;
+  const bandTau = history.bandDecay
+    .map((b) => ({
+      lo: b.lo,
+      hi: b.hi ?? Number.POSITIVE_INFINITY,
+      tau: b.tauYears,
+    }))
+    .sort((a, b) => a.lo - b.lo);
+
+  /** 确定性哈希：同一个索引永远得到同一个 [0,1) 值，保证画面可复现。 */
+  function hash01(i: number): number {
+    let x = Math.imul(i ^ 0x9e3779b9, 0x85ebca6b);
+    x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
+    x ^= x >>> 16;
+    return (x >>> 0) / 4294967296;
+  }
+
+  function lifetimeOf(perigee: number, index: number): number {
+    const band = bandTau.find((b) => perigee >= b.lo && perigee < b.hi);
+    const tau = band?.tau ?? null;
+    if (tau === null || tau === undefined) {
+      // 观测期内没有可测清除：给 1.5 倍时间轴跨度，200 年推不完。
+      return 1.5;
+    }
+    const u = Math.max(1e-6, hash01(index));
+    const years = -tau * Math.log(u);
+    return Math.min(1.5, years / MAX_HORIZON);
+  }
+
+  for (let i = 0; i < dCount; i += 1) {
+    const o = i * debris.meta.stride;
+    dPositions[i * 3] = debris.points[o + debris.offset.x];
+    dPositions[i * 3 + 1] = debris.points[o + debris.offset.y];
+    dPositions[i * 3 + 2] = debris.points[o + debris.offset.z];
+    dCategories[i] = debris.points[o + debris.offset.groupId];
+    const pg = debris.points[o + debris.offset.perigeeKm];
+    dMetrics[i] = pg;
+    dSizes[i] = 1.15;
+    dLifetimes[i] = Number.isFinite(pg) ? lifetimeOf(pg, i) : 1.5;
+  }
+
+  const debrisLayer = new PointLayer({
+    count: dCount,
+    categories: dCategories,
+    sizes: dSizes,
+    metrics: dMetrics,
+    lifetimes: dLifetimes,
+    // 三个碎片群各自的颜色。第三到五章要看的是碎片内部的差异，
+    // 统一用橙色不够用。
+    palette: [DEBRIS_PALETTE.fengyun1c, DEBRIS_PALETTE.cosmos2251, DEBRIS_PALETTE.iridium33],
+    baseSizePx: 1.9,
+    maxSizePx: 5.5,
+    referenceDistance: SCENE_EARTH_RADIUS * 3.2,
+    opacity: 1,
+  });
+  debrisLayer.updateFromEcef(dPositions);
+  debrisLayer.setCategoryMix(1);
+  debrisLayer.points.visible = false;
+  scene.add(debrisLayer.points);
+
   // ---------- 文案与统计 ----------
-  const debrisFigures: DebrisGroupFigures[] = debrisMeta.groups.map((g) => ({
+  const debrisFigures: DebrisGroupFigures[] = debris.meta.groups.map((g) => ({
     key: g.key,
     label: g.label,
     event: g.event,
@@ -176,14 +285,15 @@ async function main(): Promise<void> {
     perigeeMinKm: g.perigeeMinKm,
     perigeeMaxKm: g.perigeeMaxKm,
     above800km: g.above800km,
+    inclMinDeg: g.inclMinDeg,
+    inclMedianDeg: g.inclMedianDeg,
+    inclMaxDeg: g.inclMaxDeg,
   }));
 
-  const figures = buildFigures(data, debrisFigures);
+  const figures = buildFigures(data, debrisFigures, debris, history);
 
-  const stepEls = mountSteps(
-    CHAPTER_ONE_STEPS.map((s) => ({ id: s.id, html: s.render(figures) }))
-  );
-  const storySteps: StoryStep[] = CHAPTER_ONE_STEPS.map((s, i) => ({
+  const stepEls = mountSteps(ALL_STEPS.map((s) => ({ id: s.id, html: s.render(figures) })));
+  const storySteps: StoryStep[] = ALL_STEPS.map((s, i) => ({
     el: stepEls[i],
     id: s.id,
     pinRatio: s.pinRatio,
@@ -192,27 +302,30 @@ async function main(): Promise<void> {
   // ---------- 尾页 ----------
   const methodsHost = document.getElementById('methods');
   if (methodsHost) {
-    // 运行时数据量按实际传输的文件体积估算，用于说明离线包大小
-    const dataSizeKb = 739;
+    // 运行时数据量按本次实际下载的字节数统计，而不是写死的常量：
+    // 编目会更新，写死的体积迟早与实际不符。
+    // 海岸线是异步加载且允许失败，这里等它落定再统计，否则会漏算。
+    await coastlineReady;
+    const dataSizeKb = (data.bytes + debris.bytes + history.bytes + coastlineBytes) / 1024;
     methodsHost.innerHTML = renderMethods(figures, methodSpecs(figures, dataSizeKb));
   }
 
   // ---------- 滚动叙事 ----------
   const story = createScrollStory(storySteps);
-  const ch1Scene = createChapterOneScene(rig, layer, globe);
+  const scenes = createChapterScenes(rig, layer, debrisLayer, globe, history);
 
   const ticks = mountStageTicks(
-    CHAPTER_ONE_STEPS.map((s) => ({ id: s.id, nav: s.nav })),
+    ALL_STEPS.map((s) => ({ id: s.id, nav: s.nav })),
     (id) => story.goTo(id)
   );
 
   // 步骤标识 → 镜头状态标识。文案层已经声明了每步想要的镜头（StepCopy.scene），
   // 这里做一次查表，避免场景层去猜叙事步骤的名字。
-  const sceneById = new Map(CHAPTER_ONE_STEPS.map((s) => [s.id, s.scene]));
+  const sceneById = new Map(ALL_STEPS.map((s) => [s.id, s.scene]));
 
   let lastTickState = '';
   story.onStep((state) => {
-    ch1Scene.apply(state, sceneById.get(state.id) ?? 'establish');
+    scenes.apply(state, sceneById.get(state.id) ?? 'establish');
 
     // 刻度状态：只在与上次不同时写 DOM
     const key = `${state.index}`;
@@ -234,9 +347,13 @@ async function main(): Promise<void> {
   const readFps = document.getElementById('readout-fps');
   const readPoints = document.getElementById('readout-points');
   const readQuality = document.getElementById('readout-quality');
-  const pointsText = `${int(count)} 万`.replace(`${int(count)}`, int(count));
-  if (readPoints) readPoints.textContent = int(count);
+  if (readPoints) readPoints.textContent = int(count + dCount);
   if (readQuality) readQuality.textContent = `${renderer.getPixelRatio().toFixed(2)}x`;
+
+  // 顶栏右侧补一个「当前时间切片」读数：第二章之后它是画面状态的直接解释，
+  // 没有它观众会以为点变少是渲染出问题。
+  const readYear = document.getElementById('readout-year');
+  const yearField = document.getElementById('field-year');
 
   // ---------- 渲染循环 ----------
   const clock = new THREE.Clock();
@@ -267,6 +384,17 @@ async function main(): Promise<void> {
       hudAccum = 0;
       if (readDist) readDist.textContent = cameraDistanceKm(rig.distance);
       if (readFps) readFps.textContent = fps.toFixed(0);
+      if (readYear && yearField) {
+        const y = scenes.yearMax;
+        if (y === null) {
+          // 不筛选时这一格没有信息量，收起来而不是显示「全部」——
+          // 仪器面板上不出现空转的字段。
+          yearField.setAttribute('hidden', '');
+        } else {
+          yearField.removeAttribute('hidden');
+          readYear.textContent = String(y);
+        }
+      }
     }
 
     requestAnimationFrame(frame);
@@ -302,8 +430,12 @@ async function main(): Promise<void> {
         fps: +fps.toFixed(1),
         cameraDistanceEarthRadii: +rig.distance.toFixed(3),
         step: story.state.id,
-        scene: ch1Scene.currentSceneId,
+        scene: scenes.currentSceneId,
         stepProgress: +story.state.progress.toFixed(3),
+        yearMax: scenes.yearMax,
+        catalogVisible: layer.points.visible,
+        debrisVisible: debrisLayer.points.visible,
+        horizon: debrisLayer.horizon,
         categories: catalogMeta.categories,
       }),
       goTo: (id: string) => story.goTo(id),
@@ -311,7 +443,7 @@ async function main(): Promise<void> {
     };
   }
 
-  void pointsText;
+  void scaled;
 }
 
 main().catch((err) => {

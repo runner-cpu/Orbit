@@ -2,6 +2,21 @@
   "epoch": "2026-10-13T00:00:00.000Z",
   "source": "CelesTrak",
   "total": 2676,
+  "stride": 7,
+  "fields": [
+    "ecefX",
+    "ecefY",
+    "ecefZ",
+    "perigeeKm",
+    "apogeeKm",
+    "inclDeg",
+    "groupId"
+  ],
+  "groupKeys": [
+    "fengyun1c",
+    "cosmos2251",
+    "iridium33"
+  ],
   "groups": [
     {
       "key": "fengyun1c",
@@ -12,7 +27,10 @@
       "perigeeMinKm": 300.4,
       "perigeeMedianKm": 761.1,
       "perigeeMaxKm": 1278.7,
-      "above800km": 580
+      "above800km": 580,
+      "inclMinDeg": 94.6,
+      "inclMedianDeg": 98.8,
+      "inclMaxDeg": 106.2
     },
     {
       "key": "cosmos2251",
@@ -23,7 +41,10 @@
       "perigeeMinKm": 266,
       "perigeeMedianKm": 689.7,
       "perigeeMaxKm": 773.5,
-      "above800km": 0
+      "above800km": 0,
+      "inclMinDeg": 73.5,
+      "inclMedianDeg": 74,
+      "inclMaxDeg": 74.3
     },
     {
       "key": "iridium33",
@@ -34,7 +55,16 @@
       "perigeeMinKm": 472.1,
       "perigeeMedianKm": 698.3,
       "perigeeMaxKm": 770.1,
-      "above800km": 0
+      "above800km": 0,
+      "inclMinDeg": 86,
+      "inclMedianDeg": 86.3,
+      "inclMaxDeg": 86.5
     }
-  ]
+  ],
+  "units": {
+    "position": "km",
+    "perigee": "km",
+    "apogee": "km",
+    "inclination": "deg"
+  }
 }

@@ -45,7 +45,7 @@ export interface Globe {
   spins: THREE.Group;
   /** 不随地球自转的层（大气辉光） */
   static: THREE.Group;
-  /** 载入海岸线数据，返回折线段数 */
+  /** 载入海岸线数据，返回该文件的字节数（用于统计运行时数据量） */
   loadCoastlines(url: string): Promise<number>;
   /** 交互式地层显隐 */
   setReferenceLayersVisible(v: boolean): void;
@@ -162,7 +162,8 @@ export function createGlobe(scene: THREE.Scene): Globe {
   async function loadCoastlines(url: string): Promise<number> {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`海岸线数据加载失败：HTTP ${res.status}`);
-    const payload = (await res.json()) as CoastlinePayload;
+    const text = await res.text();
+    const payload = JSON.parse(text) as CoastlinePayload;
 
     const positions: number[] = [];
     for (const line of payload.lines) {
@@ -182,7 +183,7 @@ export function createGlobe(scene: THREE.Scene): Globe {
       opacity: 0.5,
     });
     coastGroup.add(new THREE.LineSegments(geo, mat));
-    return payload.boundaryCount;
+    return text.length;
   }
 
   function setReferenceLayersVisible(v: boolean): void {

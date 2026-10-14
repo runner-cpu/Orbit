@@ -314,6 +314,26 @@ body {
   font-size: 12px;
 }
 
+.field-val small {
+  color: var(--ink-faint);
+  font-size: 10px;
+  margin-left: 3px;
+}
+
+/* 时间切片读数：只在第二章的时间轴里出现，其余场景由脚本加 hidden 收起。
+   放在视距与帧率之间，因为它是画面状态的直接解释——
+   点变少不是渲染出问题，而是时间被往回拨了。 */
+.field-year[hidden] {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* 窄屏顶栏排不下三项，时间切片退回底部整宽，且不占顶栏 */
+  .field-year {
+    display: none;
+  }
+}
+
 /* 章节刻度：底部左侧，既是进度指示也是导航 */
 .hud-stages {
   display: flex;
@@ -980,5 +1000,57 @@ em {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================================
+   增长台阶图（第二章）
+   ----------------------------------------------------------------------------
+   与高度分层图同构：横条长度表达增量，年份与数值左右对齐。
+   复用 .band-* 的观感但不复用类名，因为两者的语义不同：
+   .bands 读的是「某一层的总量」，.jumps 读的是「某一年比平常多出多少」。
+   ========================================================================== */
+.jumps {
+  display: grid;
+  gap: 7px;
+  margin: 26px 0 24px;
+}
+
+.jump-row {
+  display: grid;
+  grid-template-columns: 5ch minmax(0, 1fr) 8ch;
+  align-items: center;
+  gap: 12px;
+}
+
+.jump-year {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+.jump-track {
+  position: relative;
+  height: 6px;
+  background: rgba(22, 51, 74, 0.55);
+}
+
+.jump-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  /* 增量用碎片色：这些台阶的主体确实是碎片，颜色在这里承担说明职责 */
+  background: var(--cat-debris);
+  opacity: 0.85;
+  animation: band-grow 0.7s var(--ease) both;
+}
+
+.jump-value {
+  font-size: 12.5px;
+  color: var(--ink);
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jump-fill {
+    animation: none;
   }
 }

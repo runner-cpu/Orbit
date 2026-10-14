@@ -18,7 +18,8 @@
  * 用法：node scripts/build-runtime-data.mjs
  * 产出：public/data/catalog.bin        在轨编目点云（构建期解算，运行期不解算）
  *       public/data/catalog-meta.json
- *       public/data/debris.tle         碎片轨道根数（运行期由 SGP4 解算）
+ *       public/data/debris.bin         三个碎片群的点云（含倾角、近地点与寿命估算）
+ *       public/data/debris.tle         碎片轨道根数原文（留档与复算用）
  *       public/data/debris-meta.json
  */
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
@@ -167,7 +168,12 @@ function elements(line2) {
   const nRevPerDay = parseFloat(line2.slice(52, 63));
   const n = (nRevPerDay * 2 * Math.PI) / 86400;
   const a = Math.cbrt(MU / (n * n));
-  return { ecc, incl, perigee: a * (1 - ecc) - R_EARTH, apogee: a * (1 + ecc) - R_EARTH };
+  return {
+    ecc,
+    incl,
+    perigee: a * (1 - ecc) - R_EARTH,
+    apogee: a * (1 + ecc) - R_EARTH,
+  };
 }
 
 /** 轨道类型编码：供着色与统计使用。 */
@@ -270,41 +276,107 @@ async function main() {
   );
 
   // ---------- 第三、四章：碎片轨道根数 ----------
+  //
+  // 这里同时产出两种形态，因为两章要的东西不同：
+  //   debris.tle  根数原文，留档与复算用，也是「数据可核验」的直接凭据
+  //   debris.bin  逐点地固坐标 + 近地点 + 倾角 + 所属群，运行时直接上传 GPU
+  //
+  // 碎片本身在章节时间轴上不移动（时间轴只驱动「显示多少、怎么着色」），
+  // 因此位置同样在构建期解算。这样运行期不需要携带 TLE 解析与 SGP4 调用，
+  // 首屏也少一次 400 KB 的网络等待。
+  const GROUP_KEY = ['fengyun1c', 'cosmos2251', 'iridium33'];
+  const DEBRIS_FIELDS = ['ecefX', 'ecefY', 'ecefZ', 'perigeeKm', 'apogeeKm', 'inclDeg', 'groupId'];
+  const debrisStride = DEBRIS_FIELDS.length;
+
   const debrisLines = [];
   const debrisMeta = [];
-  let offset = 0;
+  const perGroupRecords = [];
 
-  for (const d of DEBRIS_FILES) {
+  for (let gi = 0; gi < DEBRIS_FILES.length; gi += 1) {
+    const d = DEBRIS_FILES[gi];
     const objs = parseTle(await readFile(path.join(RAW, d.file), 'utf8'));
-    const perigees = [];
+    const recs = [];
     for (const o of objs) {
       debrisLines.push(o.line1, o.line2);
-      perigees.push(elements(o.line2).perigee);
-      offset += 1;
+      recs.push(o);
     }
+    perGroupRecords.push(recs);
+
+    const perigees = recs.map((o) => elements(o.line2).perigee);
+    const incls = recs.map((o) => elements(o.line2).incl);
     perigees.sort((a, b) => a - b);
+    incls.sort((a, b) => a - b);
+
+    // 倾角范围写进元信息：第四章要论证的正是「两个群的轨道面朝向不同」，
+    // 这个差值必须在页面上能被引到具体数字，而不是靠观众目测。
     debrisMeta.push({
       key: d.key,
       label: d.label,
       event: d.event,
       color: d.key === 'fengyun1c' ? '#ff7a45' : d.key === 'cosmos2251' ? '#4fc3f7' : '#ffd54f',
-      count: objs.length,
+      count: recs.length,
       perigeeMinKm: +perigees[0].toFixed(1),
       perigeeMedianKm: +perigees[Math.floor(perigees.length / 2)].toFixed(1),
       perigeeMaxKm: +perigees[perigees.length - 1].toFixed(1),
       above800km: perigees.filter((x) => x >= 800).length,
+      inclMinDeg: +incls[0].toFixed(1),
+      inclMedianDeg: +incls[Math.floor(incls.length / 2)].toFixed(1),
+      inclMaxDeg: +incls[incls.length - 1].toFixed(1),
     });
   }
 
+  const debrisBuf = new Float32Array(
+    perGroupRecords.reduce((s, r) => s + r.length, 0) * debrisStride
+  );
+  {
+    let k = 0;
+    for (let gi = 0; gi < perGroupRecords.length; gi += 1) {
+      for (const o of perGroupRecords[gi]) {
+        const oi = k * debrisStride;
+        const rec = satellite.twoline2satrec(o.line1, o.line2);
+        const pv = satellite.propagate(rec, EPOCH);
+        if (pv?.position && Number.isFinite(pv.position.x)) {
+          const { x, y, z } = pv.position;
+          debrisBuf[oi] = x * cosG + y * sinG;
+          debrisBuf[oi + 1] = -x * sinG + y * cosG;
+          debrisBuf[oi + 2] = z;
+        } else {
+          debrisBuf[oi] = debrisBuf[oi + 1] = debrisBuf[oi + 2] = NaN;
+        }
+        const el = elements(o.line2);
+        debrisBuf[oi + 3] = el.perigee;
+        debrisBuf[oi + 4] = el.apogee;
+        debrisBuf[oi + 5] = el.incl;
+        debrisBuf[oi + 6] = gi;
+        k += 1;
+      }
+    }
+  }
+
+  await writeFile(path.join(OUT, 'debris.bin'), Buffer.from(debrisBuf.buffer));
   await writeFile(path.join(OUT, 'debris.tle'), debrisLines.join('\n') + '\n', 'utf8');
   await writeFile(
     path.join(OUT, 'debris-meta.json'),
-    JSON.stringify({ epoch: EPOCH.toISOString(), source: 'CelesTrak', total: offset, groups: debrisMeta }, null, 2),
+    JSON.stringify(
+      {
+        epoch: EPOCH.toISOString(),
+        source: 'CelesTrak',
+        total: debrisBuf.length / debrisStride,
+        stride: debrisStride,
+        fields: DEBRIS_FIELDS,
+        groupKeys: GROUP_KEY,
+        groups: debrisMeta,
+        units: { position: 'km', perigee: 'km', apogee: 'km', inclination: 'deg' },
+      },
+      null,
+      2
+    ),
     'utf8'
   );
 
   // ---------- 报告 ----------
   const catalogBin = (await stat(path.join(OUT, 'catalog.bin'))).size;
+  const debrisBin = (await stat(path.join(OUT, 'debris.bin'))).size;
   const debrisTle = (await stat(path.join(OUT, 'debris.tle'))).size;
   const gz = async (p) => gzipSync(await readFile(p), { level: 9 }).length;
 
@@ -321,14 +393,16 @@ async function main() {
   console.log('\n=== 第三、四章：碎片 ===');
   for (const g of debrisMeta) {
     console.log(
-      `  ${g.label.padEnd(14)} ${String(g.count).padStart(5)} 个 | 近地点中位 ${g.perigeeMedianKm} km | ≥800km ${g.above800km}`
+      `  ${g.label.padEnd(14)} ${String(g.count).padStart(5)} 个 | 近地点中位 ${g.perigeeMedianKm} km | ` +
+        `倾角 ${g.inclMinDeg}–${g.inclMaxDeg}° | ≥800km ${g.above800km}`
     );
   }
-  console.log(`  TLE 体积      ${(debrisTle / 1024).toFixed(1)} KB (未压缩)`);
+  console.log(`  点云体积      ${(debrisBin / 1024).toFixed(1)} KB (未压缩)`);
+  console.log(`  TLE 留档      ${(debrisTle / 1024).toFixed(1)} KB (未压缩)`);
 
   console.log('\n=== 运行时数据总量 ===');
-  const gzTotal = (await gz(path.join(OUT, 'catalog.bin'))) + (await gz(path.join(OUT, 'debris.tle')));
-  console.log(`  未压缩        ${((catalogBin + debrisTle) / 1024).toFixed(0)} KB`);
+  const gzTotal = (await gz(path.join(OUT, 'catalog.bin'))) + (await gz(path.join(OUT, 'debris.bin')));
+  console.log(`  未压缩        ${((catalogBin + debrisBin) / 1024).toFixed(0)} KB`);
   console.log(`  gzip 后       ${(gzTotal / 1024).toFixed(0)} KB`);
   console.log('\n已写入 public/data/');
 }

@@ -12,6 +12,7 @@
     "satcat": "node scripts/fetch-satcat.mjs",
     "merge": "node scripts/merge-catalog.mjs",
     "runtime-data": "node scripts/build-runtime-data.mjs",
+    "history": "node scripts/build-history.mjs",
     "coastlines": "node scripts/build-coastlines.mjs",
     "bench": "node scripts/bench-propagation.mjs",
     "verify": "node scripts/verify-data.mjs"
