@@ -47,7 +47,12 @@ jobs:
       # npm run build 内部已经包含 tsc --noEmit，类型错误会中断发布
       - run: npm run build
 
+      # enablement 让首次部署时自动把仓库的 Pages 发布源切到「GitHub Actions」。
+      # 不开这个开关时，仓库尚未启用 Pages 会让这一步直接 404 失败，
+      # 需要在网页端手工设置一次才能通过。
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
