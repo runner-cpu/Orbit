@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#04070d" />
+    <title>轨道之上：一片正在增厚的碎片带</title>
+    <meta
+      name="description"
+      content="用真实轨道编目数据讲述近地轨道的拥挤程度。数据来源 CelesTrak，历元 2026-10-13。"
+    />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- 三维场景层：固定铺满视口，作为整页的背景与主视觉 -->
+    <div class="scene-layer" aria-hidden="true">
+      <canvas id="scene"></canvas>
+      <div class="scene-vignette"></div>
+    </div>
+
+    <!--
+      载入遮罩：三维场景与 16,000 个点云尚未就绪时盖住画面。
+      数据全部是本地静态文件，正常情况下不到一秒就会撤掉；
+      没有它会出现一次从空场景到满屏点云的闪烁。
+    -->
+    <div class="boot-veil" id="boot-veil">
+      <div class="veil-mark" aria-hidden="true"></div>
+      <p id="boot-status">正在载入轨道编目</p>
+    </div>
+
+    <!-- 顶部仪表条：作品名 / 数据出处 / 视图状态，常驻 -->
+    <header class="hud hud-top">
+      <div class="hud-cell hud-title">
+        <span class="mark" aria-hidden="true"></span>
+        <span class="title-cn">轨道之上</span>
+        <span class="title-sub">一片正在增厚的碎片带</span>
+      </div>
+      <div class="hud-cell hud-provenance">
+        <span class="field">
+          <span class="field-key">数据来源</span>
+          <span class="field-val">CelesTrak</span>
+        </span>
+        <span class="field">
+          <span class="field-key">数据历元</span>
+          <span class="field-val mono" id="epoch-value">2026-10-13</span>
+        </span>
+      </div>
+      <div class="hud-cell hud-view">
+        <span class="field">
+          <span class="field-key">视距</span>
+          <span class="field-val mono" id="readout-distance">-</span>
+        </span>
+        <span class="field">
+          <span class="field-key">帧率</span>
+          <span class="field-val mono" id="readout-fps">-</span>
+        </span>
+      </div>
+    </header>
+
+    <!--
+      叙事栏：章节步骤在运行时按数据生成后插入 #story。
+      文案不在 HTML 里写死，因为其中的数字必须来自当前数据包，
+      写成静态文本会出现「改了数据、文案没跟着变」的错位。
+    -->
+    <main id="story"></main>
+
+    <!--
+      尾页：数据与方法。
+      这不是附录，而是参赛要求里「注明资料来源」与「可核验」的直接落点，
+      因此作为正式章节放在叙事之后。
+    -->
+    <section class="methods" id="methods" aria-label="数据与方法"></section>
+
+    <footer class="hud hud-bottom">
+      <div class="hud-cell hud-stages" id="stage-ticks" role="navigation" aria-label="章节进度"></div>
+      <div class="hud-cell hud-counts">
+        <span class="field">
+          <span class="field-key">渲染对象</span>
+          <span class="field-val mono" id="readout-points">-</span>
+        </span>
+        <span class="field">
+          <span class="field-key">地点尺寸</span>
+          <span class="field-val mono" id="readout-quality">-</span>
+        </span>
+      </div>
+    </footer>
+
+    <noscript>
+      <div class="noscript">
+        <h1>轨道之上</h1>
+        <p>本作品使用 WebGL 实时渲染三维轨道场景，需要启用 JavaScript 才能观看。</p>
+        <p>数据来源 CelesTrak，历元 2026-10-13（UTC）。</p>
+      </div>
+    </noscript>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "orbit-story",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "《轨道之上：一片正在增厚的碎片带》— 交互式科学传播长页（2026 全国大学生数字媒体科技作品及创意竞赛）",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "data": "node scripts/prepare-data.mjs",
+    "satcat": "node scripts/fetch-satcat.mjs",
+    "merge": "node scripts/merge-catalog.mjs",
+    "runtime-data": "node scripts/build-runtime-data.mjs",
+    "coastlines": "node scripts/build-coastlines.mjs",
+    "bench": "node scripts/bench-propagation.mjs",
+    "verify": "node scripts/verify-data.mjs"
+  },
+  "dependencies": {
+    "satellite.js": "^7.1.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@types/node": "^26.6.5",
+    "@types/three": "^0.186.0",
+    "topojson-client": "^3.1.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "world-atlas": "^2.0.2"
+  }
+}

@@ -1,0 +1,984 @@
+/* ============================================================================
+   字体
+   ----------------------------------------------------------------------------
+   数字与代码读数用 JetBrains Mono（OFL-1.1，随包分发，仅含拉丁子集）。
+   中文不随包分发字体：一套中文黑体的子集化文件仍在数百 KB 量级，
+   而作品要求零外部依赖、体积可控，因此中文回落到系统字体栈。
+   这也是本页在「数据与方法」中如实说明的一项。
+   ========================================================================== */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2')
+    format('woff2');
+}
+
+/* ============================================================================
+   设计令牌
+   ----------------------------------------------------------------------------
+   整页锁定单一深色主题：这是深空场景的固有条件，翻成浅色会让点云失去意义。
+   颜色分两类，各自有严格职责：
+     结构色（网格、边框、刻度）只负责划分信息层级，不携带语义。
+     数据色（accent 与类别色）只用于编码数据，不做装饰。
+   ========================================================================== */
+:root {
+  /* 底面与结构 */
+  --bg: #04070d;
+  --bg-panel: rgba(7, 17, 27, 0.78);
+  --bg-panel-solid: #070f18;
+  --line: #16334a;
+  --line-strong: #245567;
+  --line-bright: #3a7fa3;
+
+  /* 文本层级 */
+  --ink: #dbe9f3;
+  --ink-mid: #93aec1;
+  --ink-dim: #5f7b8d;
+  --ink-faint: #3d5769;
+
+  /* 数据色 */
+  --accent: #4fc3f7;
+  --accent-dim: #2c7fa8;
+  --warn: #ff6b35;
+  --amber: #f0a94c;
+
+  /* 类别色，与 src/core/pointCloud.ts 的 PALETTE.category 一一对应 */
+  --cat-working: #7ad4f5;
+  --cat-dead: #f0a94c;
+  --cat-rocket: #c98a9e;
+  --cat-debris: #ff6b35;
+  --cat-unknown: #5a6b78;
+
+  /* 尺度 */
+  --hud-h: 60px;
+  --gutter: clamp(20px, 4.2vw, 64px);
+  --rail-w: 46ch;
+
+  /* 角半径统一为 0：仪器面板是直角，这条规则全页无例外 */
+  --radius: 0;
+
+  /* 缓动统一：先快后慢，模拟有质量的物体 */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', monospace;
+  --font-sans: 'Inter Tight', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC',
+    'Noto Sans CJK SC', 'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
+
+  /* 整页只有一种明度方向，声明出来让表单控件与滚动条也走深色 */
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* 滚动容器是整页，因此把滚动行为放在根元素上 */
+  scroll-behavior: smooth;
+  /* 滚动条并入配色。
+     浏览器默认画的是浅灰轨道，在近黑底面上会形成一条贯穿整页的亮边，
+     看起来像画面坏了一道。改成与结构色同系，让它退回仪器外壳里。 */
+  scrollbar-color: var(--line-strong) var(--bg);
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-bright);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.75;
+  /* 中文正文在暗背景上需要更松的行距才不糊 */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================================
+   三维场景层
+   ========================================================================== */
+.scene-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+#scene.is-grabbing {
+  cursor: grabbing;
+}
+
+/* 四角压暗：把视线收拢到画面中心，同时压住球体边缘的辉光溢出 */
+.scene-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 88% at 62% 46%, transparent 38%, rgba(2, 5, 9, 0.62) 100%),
+    linear-gradient(180deg, rgba(2, 5, 9, 0.55) 0%, transparent 22%),
+    linear-gradient(0deg, rgba(2, 5, 9, 0.72) 0%, transparent 26%);
+}
+
+/* 极细的扫描线纹理。固定定位且不接收指针事件，不会引发滚动重绘。 */
+.scene-vignette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(120, 190, 230, 0.035) 0px,
+    rgba(120, 190, 230, 0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .scene-vignette::after {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   仪表条
+   ----------------------------------------------------------------------------
+   上下两条常驻，构成「仪器外壳」。所有读数都是真实运行状态，
+   没有装饰性数字，这也是页面可信度的一部分。
+   ========================================================================== */
+.hud {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 32px);
+  padding: 0 var(--gutter);
+  background: linear-gradient(180deg, rgba(4, 7, 13, 0.94), rgba(4, 7, 13, 0.72));
+  backdrop-filter: blur(14px) saturate(1.1);
+  font-size: 12px;
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .hud {
+    background: var(--bg-panel-solid);
+  }
+}
+
+.hud-top {
+  top: 0;
+  height: var(--hud-h);
+  border-bottom: 1px solid var(--line);
+}
+
+.hud-bottom {
+  bottom: 0;
+  height: var(--hud-h);
+  border-top: 1px solid var(--line);
+  justify-content: space-between;
+  background: linear-gradient(0deg, rgba(4, 7, 13, 0.94), rgba(4, 7, 13, 0.72));
+}
+
+.hud-cell {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.8vw, 28px);
+  min-width: 0;
+}
+
+.hud-view,
+.hud-counts {
+  margin-left: auto;
+}
+
+/* 品牌标记：两个同心圆加一条倾斜轨道线，与 favicon 同构 */
+.mark {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 1px solid var(--line-bright);
+  border-radius: 50%;
+}
+
+.mark::before {
+  content: '';
+  position: absolute;
+  inset: 3.5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.mark::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -3px;
+  width: 24px;
+  height: 1px;
+  background: var(--warn);
+  transform: rotate(-26deg);
+  transform-origin: center;
+}
+
+.hud-title {
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.title-cn {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+}
+
+.title-sub {
+  color: var(--ink-dim);
+  font-size: 12px;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+}
+
+.field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.field-key {
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.field-val {
+  color: var(--ink-mid);
+  font-size: 12px;
+}
+
+/* 章节刻度：底部左侧，既是进度指示也是导航 */
+.hud-stages {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.stage-tick {
+  position: relative;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 6px 10px;
+  color: var(--ink-faint);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.3s var(--ease);
+}
+
+.stage-tick::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 1px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.45s var(--ease);
+}
+
+.stage-tick[data-state='active'] {
+  color: var(--accent);
+}
+
+.stage-tick[data-state='active']::after {
+  transform: scaleX(1);
+}
+
+.stage-tick[data-state='past'] {
+  color: var(--ink-dim);
+}
+
+.stage-tick:hover,
+.stage-tick:focus-visible {
+  color: var(--ink);
+}
+
+.stage-tick:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* ============================================================================
+   叙事栏
+   ----------------------------------------------------------------------------
+   桌面端为左侧窄栏，场景占据右侧大部分视野；窄屏改为顶部对齐的单列。
+   不使用居中大标题：叙事需要左对齐的稳定基线，居中会让长文案失去定位。
+   ========================================================================== */
+main {
+  position: relative;
+  z-index: 10;
+}
+
+.step {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, var(--rail-w)) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--gutter);
+  padding: calc(var(--hud-h) + 4vh) var(--gutter) calc(var(--hud-h) + 4vh);
+}
+
+.step.card {
+  min-height: 108vh;
+}
+
+.rail {
+  grid-column: 1;
+  max-width: var(--rail-w);
+}
+
+/* 首屏不需要留出等高的空栏，标题直接落在左上区域 */
+.step.intro .rail {
+  padding-top: 2vh;
+}
+
+@media (max-width: 1080px) {
+  .step {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: end;
+    padding-bottom: calc(var(--hud-h) + 12vh);
+  }
+  .rail {
+    max-width: none;
+  }
+  .step .rail::before {
+    /* 窄屏时文案压在场景下方，加一层衬底保证可读 */
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 62vh;
+    background: linear-gradient(0deg, var(--bg) 18%, rgba(4, 7, 13, 0.86) 58%, transparent 100%);
+    z-index: -1;
+    pointer-events: none;
+  }
+}
+
+/* ============================================================================
+   文本层级
+   ========================================================================== */
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--accent-dim);
+  margin: 0 0 18px;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0 0 22px;
+  font-size: clamp(30px, 4.4vw, 54px);
+  line-height: 1.14;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  margin: 0 0 18px;
+  font-size: clamp(24px, 2.9vw, 36px);
+  line-height: 1.24;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+h3 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 18px;
+  color: var(--ink-mid);
+  max-width: 62ch;
+}
+
+p.lead {
+  font-size: clamp(17px, 1.35vw, 19px);
+  line-height: 1.85;
+  color: var(--ink);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+em {
+  font-style: normal;
+  color: var(--ink);
+  box-shadow: inset 0 -0.5em 0 rgba(79, 195, 247, 0.13);
+}
+
+/* 读数行：一个数字加一段注解，是页面表达数据的主要形式 */
+.readouts {
+  display: grid;
+  gap: 0;
+  margin: 26px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.readout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.readout-k {
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.readout-v {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.readout-v small {
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-left: 5px;
+  font-weight: 400;
+}
+
+.readout-v.is-warn {
+  color: var(--warn);
+}
+
+.readout-note {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: -6px;
+  line-height: 1.6;
+}
+
+/* 章节编号块：置于文案顶部，替代常见的 eyebrow 标签 */
+.chapter-mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.14em;
+}
+
+.chapter-mark::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.chapter-mark b {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ============================================================================
+   高度分层图
+   ----------------------------------------------------------------------------
+   横向条带而非柱状图：高度层是连续区间，横排能直接读出「哪一层厚」，
+   同时条带可以与右侧数值对齐，读数与图形一一对应。
+   ========================================================================== */
+.bands {
+  display: grid;
+  gap: 7px;
+  margin: 26px 0 24px;
+}
+
+.band-row {
+  display: grid;
+  grid-template-columns: 9.5ch minmax(0, 1fr) 7ch;
+  align-items: center;
+  gap: 12px;
+}
+
+.band-label {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.band-track {
+  position: relative;
+  height: 6px;
+  background: rgba(22, 51, 74, 0.55);
+}
+
+.band-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-dim);
+  transform-origin: left;
+  /* 条带宽度直接表达数量，动画只做入场，不做持续脉动 */
+  animation: band-grow 0.7s var(--ease) both;
+}
+
+@keyframes band-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.band-value {
+  font-size: 12.5px;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* 被强调的那一层：用暖色标出，与后文的大气阻力讨论呼应 */
+.band-row.is-hot .band-label,
+.band-row.is-hot .band-value {
+  color: var(--amber);
+}
+
+.band-row.is-hot .band-fill {
+  background: var(--amber);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .band-fill {
+    animation: none;
+  }
+}
+
+/* ============================================================================
+   结论条
+   ----------------------------------------------------------------------------
+   每一节的结论单独成块，用左侧竖线定位。全页反复出现，是叙事节拍器。
+   ========================================================================== */
+.finding {
+  margin: 28px 0 0;
+  padding: 2px 0 2px 18px;
+  border-left: 2px solid var(--accent);
+}
+
+.finding p {
+  color: var(--ink);
+  font-size: 15.5px;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.finding.is-warn {
+  border-left-color: var(--warn);
+}
+
+/* 来源标注：紧贴数据出现，不集中放到页脚 */
+.cite {
+  margin-top: 22px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-faint);
+  max-width: 60ch;
+}
+
+.cite b {
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
+/* ============================================================================
+   图例
+   ========================================================================== */
+.legend {
+  display: grid;
+  gap: 0;
+  margin: 24px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.legend-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.legend-label {
+  color: var(--ink-mid);
+}
+
+.legend-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.swatch-working {
+  color: var(--cat-working);
+}
+.swatch-dead {
+  color: var(--cat-dead);
+}
+.swatch-rocket {
+  color: var(--cat-rocket);
+}
+.swatch-debris {
+  color: var(--cat-debris);
+}
+.swatch-unknown {
+  color: var(--cat-unknown);
+}
+
+/* ============================================================================
+   操作提示
+   ----------------------------------------------------------------------------
+   只在首屏出现一次，说明可拖拽与缩放。不是滚动提示，是交互可用性说明。
+   ========================================================================== */
+.hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.hint span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hint kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-dim);
+  background: rgba(22, 51, 74, 0.22);
+}
+
+/* ============================================================================
+   兜底与状态
+   ========================================================================== */
+.noscript,
+.boot-error {
+  position: fixed;
+  inset: auto var(--gutter) auto var(--gutter);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 60;
+  max-width: 62ch;
+  padding: 28px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-panel-solid);
+}
+
+.boot-error h3 {
+  color: var(--warn);
+}
+
+.boot-error pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+  margin: 12px 0 0;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+/* 载入遮罩：挡住首帧未就绪的三维画面，避免出现黑屏闪烁 */
+.boot-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  background: var(--bg);
+  transition: opacity 0.7s var(--ease);
+}
+
+.boot-veil[hidden] {
+  display: none;
+}
+
+.boot-veil .veil-mark {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  border-top-color: var(--accent);
+  animation: veil-spin 1.5s linear infinite;
+}
+
+@keyframes veil-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-veil .veil-mark {
+    animation: none;
+    border-top-color: var(--line-strong);
+  }
+}
+
+.boot-veil p {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+}
+
+.is-veiled .boot-veil {
+  opacity: 1;
+}
+
+.boot-veil.is-gone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============================================================================
+   尾页：数据与方法
+   ========================================================================== */
+.methods {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(180deg, transparent, rgba(4, 7, 13, 0.96) 12%);
+  padding: 12vh var(--gutter) calc(var(--hud-h) + 9vh);
+}
+
+.methods-inner {
+  max-width: 76ch;
+  margin: 0 auto;
+}
+
+.methods h2 {
+  margin-bottom: 8px;
+}
+
+.methods h3 {
+  margin-top: 44px;
+  margin-bottom: 14px;
+  color: var(--ink);
+}
+
+.methods h3:first-of-type {
+  margin-top: 34px;
+}
+
+.methods p,
+.methods li {
+  font-size: 14.5px;
+  color: var(--ink-mid);
+}
+
+.methods ul {
+  margin: 0 0 18px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.methods li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 10px;
+}
+
+.methods li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0.72em;
+  width: 5px;
+  height: 1px;
+  background: var(--line-bright);
+}
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  margin: 22px 0 8px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.spec {
+  background: var(--bg);
+  padding: 16px 18px;
+}
+
+.spec-k {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-bottom: 7px;
+}
+
+.spec-v {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  color: var(--ink);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.colophon {
+  margin-top: 54px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  line-height: 1.9;
+}
+
+.colophon a {
+  color: var(--ink-dim);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.colophon a:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent-dim);
+}
+
+/* ============================================================================
+   窄屏与低性能退化
+   ========================================================================== */
+@media (max-width: 720px) {
+  :root {
+    --hud-h: 54px;
+  }
+  body {
+    font-size: 15.5px;
+  }
+  .hud-provenance,
+  .hud-view {
+    display: none;
+  }
+  .hud-bottom {
+    gap: 10px;
+  }
+  .hud-counts .field:first-child {
+    display: none;
+  }
+  .readout-v {
+    font-size: 18px;
+  }
+  .step {
+    min-height: 96vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

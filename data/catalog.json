@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-10-13T18:17:41.887Z",
+  "perGroup": {
+    "active.tle": {
+      "objects": 15932,
+      "role": "catalog"
+    },
+    "amateur.tle": {
+      "objects": 95,
+      "role": "catalog"
+    },
+    "beidou.tle": {
+      "objects": 53,
+      "role": "catalog"
+    },
+    "cosmos-2251-debris.tle": {
+      "objects": 588,
+      "role": "debris"
+    },
+    "cubesat.tle": {
+      "objects": 83,
+      "role": "catalog"
+    },
+    "fengyun-1c-debris.tle": {
+      "objects": 1979,
+      "role": "debris"
+    },
+    "galileo.tle": {
+      "objects": 32,
+      "role": "catalog"
+    },
+    "geo.tle": {
+      "objects": 565,
+      "role": "catalog"
+    },
+    "globalstar.tle": {
+      "objects": 28,
+      "role": "catalog"
+    },
+    "gps-ops.tle": {
+      "objects": 32,
+      "role": "catalog"
+    },
+    "iridium-33-debris.tle": {
+      "objects": 109,
+      "role": "debris"
+    },
+    "science.tle": {
+      "objects": 46,
+      "role": "catalog"
+    },
+    "starlink.tle": {
+      "objects": 10654,
+      "role": "catalog"
+    },
+    "stations.tle": {
+      "objects": 18,
+      "role": "catalog"
+    }
+  },
+  "merged": {
+    "rawObjectsAcrossFiles": 27538,
+    "uniqueObjects": 15934,
+    "duplicatesRemoved": 11604
+  },
+  "orbitClasses": {
+    "LEO": 15156,
+    "MEO": 196,
+    "GEO": 545,
+    "HEO": 37,
+    "OTHER": 0
+  },
+  "perigeeKm": {
+    "min": 168.6,
+    "p25": 461.9,
+    "median": 481.7,
+    "p75": 541.8,
+    "max": 119093.9
+  }
+}

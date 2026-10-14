@@ -1,0 +1,16 @@
+# 统一换行符，避免不同平台检出后产生整文件差异。
+# 这里的文本主要是数据文件（TLE、CSV），它们的体积远大于代码，
+# 一旦被自动转换就会在 diff 里产生几十万行噪声。
+* text=auto eol=lf
+
+# 二进制资源必须声明为 binary，否则 Git 会把 0x0D0A 之类的字节
+# 当成换行改写，直接破坏数据。catalog.bin 是 Float32Array 的原始字节，
+# 一旦被改写，页面位置会整体错位且不会报错。
+*.bin binary
+*.woff2 binary
+*.png binary
+
+# 这些是随仓库分发的数据成品，检出时必须原样
+*.tle text eol=lf
+*.csv text eol=lf
+*.json text eol=lf

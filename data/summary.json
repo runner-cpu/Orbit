@@ -1,0 +1,326 @@
+{
+  "generatedAt": "2026-10-13T17:52:24.515Z",
+  "earthRadiusKm": 6378.137,
+  "fetches": [
+    {
+      "group": "stations",
+      "file": "stations.tle",
+      "status": "ok",
+      "bytes": 3024
+    },
+    {
+      "group": "gps-ops",
+      "file": "gps-ops.tle",
+      "status": "ok",
+      "bytes": 5376
+    }
+  ],
+  "debrisClouds": {
+    "fengyun1c": {
+      "label": "风云一号C碎片",
+      "event": "2007-01-11",
+      "source": "CelesTrak",
+      "sourceFile": "fengyun-1c-debris.tle",
+      "count": 1979,
+      "epochRange": [
+        "2026-09-15",
+        "2026-10-13"
+      ],
+      "altitude": {
+        "perigee": {
+          "min": 300.4,
+          "p25": 680.1,
+          "median": 761.1,
+          "p75": 808.2,
+          "max": 1278.7
+        },
+        "apogee": {
+          "min": 395.2,
+          "p25": 821.7,
+          "median": 888.7,
+          "p75": 975.7,
+          "max": 3133.2
+        },
+        "histogram": [
+          {
+            "range": "300-350",
+            "lo": 300,
+            "hi": 350,
+            "count": 1
+          },
+          {
+            "range": "350-400",
+            "lo": 350,
+            "hi": 400,
+            "count": 5
+          },
+          {
+            "range": "400-450",
+            "lo": 400,
+            "hi": 450,
+            "count": 12
+          },
+          {
+            "range": "450-500",
+            "lo": 450,
+            "hi": 500,
+            "count": 29
+          },
+          {
+            "range": "500-550",
+            "lo": 500,
+            "hi": 550,
+            "count": 57
+          },
+          {
+            "range": "550-600",
+            "lo": 550,
+            "hi": 600,
+            "count": 98
+          },
+          {
+            "range": "600-650",
+            "lo": 600,
+            "hi": 650,
+            "count": 165
+          },
+          {
+            "range": "650-700",
+            "lo": 650,
+            "hi": 700,
+            "count": 212
+          },
+          {
+            "range": "700-750",
+            "lo": 700,
+            "hi": 750,
+            "count": 303
+          },
+          {
+            "range": "750-800",
+            "lo": 750,
+            "hi": 800,
+            "count": 517
+          },
+          {
+            "range": "800-850",
+            "lo": 800,
+            "hi": 850,
+            "count": 537
+          },
+          {
+            "range": "850-900",
+            "lo": 850,
+            "hi": 900,
+            "count": 42
+          },
+          {
+            "range": "1250-1300",
+            "lo": 1250,
+            "hi": 1300,
+            "count": 1
+          }
+        ]
+      },
+      "inclination": {
+        "min": 94.6,
+        "p25": 98.6,
+        "median": 98.8,
+        "p75": 99.1,
+        "max": 106.2,
+        "spread": 11.56
+      },
+      "eccentricityMax": 0.1428,
+      "above600km": 1777,
+      "above800km": 580
+    },
+    "cosmos2251": {
+      "label": "宇宙2251碎片",
+      "event": "2009-02-10",
+      "source": "CelesTrak",
+      "sourceFile": "cosmos-2251-debris.tle",
+      "count": 588,
+      "epochRange": [
+        "2026-09-15",
+        "2026-10-13"
+      ],
+      "altitude": {
+        "perigee": {
+          "min": 266,
+          "p25": 629.7,
+          "median": 689.4,
+          "p75": 735.6,
+          "max": 773.5
+        },
+        "apogee": {
+          "min": 293.9,
+          "p25": 698.5,
+          "median": 762.7,
+          "p75": 848.7,
+          "max": 1606
+        },
+        "histogram": [
+          {
+            "range": "250-300",
+            "lo": 250,
+            "hi": 300,
+            "count": 1
+          },
+          {
+            "range": "300-350",
+            "lo": 300,
+            "hi": 350,
+            "count": 2
+          },
+          {
+            "range": "350-400",
+            "lo": 350,
+            "hi": 400,
+            "count": 3
+          },
+          {
+            "range": "400-450",
+            "lo": 400,
+            "hi": 450,
+            "count": 2
+          },
+          {
+            "range": "450-500",
+            "lo": 450,
+            "hi": 500,
+            "count": 21
+          },
+          {
+            "range": "500-550",
+            "lo": 500,
+            "hi": 550,
+            "count": 22
+          },
+          {
+            "range": "550-600",
+            "lo": 550,
+            "hi": 600,
+            "count": 47
+          },
+          {
+            "range": "600-650",
+            "lo": 600,
+            "hi": 650,
+            "count": 97
+          },
+          {
+            "range": "650-700",
+            "lo": 650,
+            "hi": 700,
+            "count": 121
+          },
+          {
+            "range": "700-750",
+            "lo": 700,
+            "hi": 750,
+            "count": 182
+          },
+          {
+            "range": "750-800",
+            "lo": 750,
+            "hi": 800,
+            "count": 90
+          }
+        ]
+      },
+      "inclination": {
+        "min": 73.5,
+        "p25": 74,
+        "median": 74,
+        "p75": 74,
+        "max": 74.3,
+        "spread": 0.73
+      },
+      "eccentricityMax": 0.0568,
+      "above600km": 490,
+      "above800km": 0
+    },
+    "iridium33": {
+      "label": "铱星33碎片",
+      "event": "2009-02-10",
+      "source": "CelesTrak",
+      "sourceFile": "iridium-33-debris.tle",
+      "count": 109,
+      "epochRange": [
+        "2026-09-26",
+        "2026-10-13"
+      ],
+      "altitude": {
+        "perigee": {
+          "min": 472.1,
+          "p25": 637.8,
+          "median": 698.3,
+          "p75": 723.4,
+          "max": 770.1
+        },
+        "apogee": {
+          "min": 490.3,
+          "p25": 671.9,
+          "median": 732.1,
+          "p75": 771.7,
+          "max": 1320.4
+        },
+        "histogram": [
+          {
+            "range": "450-500",
+            "lo": 450,
+            "hi": 500,
+            "count": 3
+          },
+          {
+            "range": "500-550",
+            "lo": 500,
+            "hi": 550,
+            "count": 5
+          },
+          {
+            "range": "550-600",
+            "lo": 550,
+            "hi": 600,
+            "count": 7
+          },
+          {
+            "range": "600-650",
+            "lo": 600,
+            "hi": 650,
+            "count": 18
+          },
+          {
+            "range": "650-700",
+            "lo": 650,
+            "hi": 700,
+            "count": 23
+          },
+          {
+            "range": "700-750",
+            "lo": 700,
+            "hi": 750,
+            "count": 45
+          },
+          {
+            "range": "750-800",
+            "lo": 750,
+            "hi": 800,
+            "count": 8
+          }
+        ]
+      },
+      "inclination": {
+        "min": 86,
+        "p25": 86.3,
+        "median": 86.3,
+        "p75": 86.4,
+        "max": 86.5,
+        "spread": 0.51
+      },
+      "eccentricityMax": 0.0398,
+      "above600km": 94,
+      "above800km": 0
+    }
+  }
+}

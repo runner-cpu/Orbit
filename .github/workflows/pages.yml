@@ -1,0 +1,64 @@
+# 构建静态产物并发布到 GitHub Pages。
+#
+# 为什么用官方 Pages 三件套（configure-pages / upload-pages-artifact / deploy-pages）
+# 而不是把 dist/ 推到一个 gh-pages 分支：
+#   Pages 的「GitHub Actions」发布源能明确记录每次上线对应哪个 commit，
+#   审核时能直接看到「这一版页面来自哪次提交」，不需要在两套历史之间对照。
+#
+# 线上地址是 https://runner-cpu.github.io/Orbit/，属于子路径部署，
+# 因此 vite.config.ts 里 base 必须是 './'，否则资源会请求到根路径上而 404。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一条分支上只保留最后一次部署，避免连续推送时旧构建把新构建覆盖回去。
+# 注意不能设成 true：发布过程中若被打断，站点会停在一个半成品状态。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # 用 ci 而不是 install：lockfile 锁定的版本必须与本地构建完全一致，
+      # 否则线上产物可能与已通过验证的版本有细微差别。
+      - run: npm ci
+
+      # 数据校验放在构建之前。页面上每个数字都由这些脚本产出，
+      # 校验不过就直接失败，不发布一个数字对不上的版本。
+      - run: npm run verify
+
+      # npm run build 内部已经包含 tsc --noEmit，类型错误会中断发布
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

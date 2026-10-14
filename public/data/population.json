@@ -1,0 +1,232 @@
+{
+  "generatedAt": "2026-10-14T12:27:42.123Z",
+  "source": "CelesTrak SATCAT",
+  "sourceUrl": "https://celestrak.org/pub/satcat.csv",
+  "sourceNote": "CelesTrak 公开发布的卫星编目记录。在轨判据为 DECAY_DATE 字段为空；运行状态取自 OPS_STATUS_CODE，仅 \"+\" 计为正在工作。",
+  "totalCatalogued": 71030,
+  "inOrbit": 35328,
+  "workingPayloads": 16801,
+  "payloadsInOrbit": 20290,
+  "failedPayloadsTracked": 1512,
+  "notWorkingPayloads": 3489,
+  "nonPayloadObjects": 15038,
+  "nonWorkingShare": 52.4,
+  "breakdown": [
+    {
+      "key": "working",
+      "label": "正在工作的载荷",
+      "count": 16801,
+      "share": 47.6
+    },
+    {
+      "key": "debris",
+      "label": "碎片",
+      "count": 12556,
+      "share": 35.5
+    },
+    {
+      "key": "failed",
+      "label": "已失效的载荷",
+      "count": 1512,
+      "share": 4.3
+    },
+    {
+      "key": "partial",
+      "label": "部分运行或待机的载荷",
+      "count": 469,
+      "share": 1.3
+    },
+    {
+      "key": "rocket",
+      "label": "火箭残骸",
+      "count": 2427,
+      "share": 6.9
+    },
+    {
+      "key": "unrecorded",
+      "label": "状态未记录的载荷",
+      "count": 1508,
+      "share": 4.3
+    },
+    {
+      "key": "unknown",
+      "label": "未分类",
+      "count": 55,
+      "share": 0.2
+    }
+  ],
+  "breakdownSum": 35328,
+  "altitudeDistribution": {
+    "bands": [
+      {
+        "label": "200-400 km",
+        "lo": 200,
+        "hi": 400,
+        "total": 2020,
+        "PAY": 1327,
+        "R/B": 350,
+        "DEB": 338,
+        "UNK": 5,
+        "share": 5.8
+      },
+      {
+        "label": "400-500 km",
+        "lo": 400,
+        "hi": 500,
+        "total": 11401,
+        "PAY": 10786,
+        "R/B": 130,
+        "DEB": 460,
+        "UNK": 25,
+        "share": 32.9
+      },
+      {
+        "label": "500-600 km",
+        "lo": 500,
+        "hi": 600,
+        "total": 3289,
+        "PAY": 1991,
+        "R/B": 185,
+        "DEB": 1103,
+        "UNK": 10,
+        "share": 9.5
+      },
+      {
+        "label": "600-700 km",
+        "lo": 600,
+        "hi": 700,
+        "total": 2762,
+        "PAY": 868,
+        "R/B": 154,
+        "DEB": 1740,
+        "UNK": 0,
+        "share": 8
+      },
+      {
+        "label": "700-800 km",
+        "lo": 700,
+        "hi": 800,
+        "total": 3745,
+        "PAY": 423,
+        "R/B": 175,
+        "DEB": 3144,
+        "UNK": 3,
+        "share": 10.8
+      },
+      {
+        "label": "800-1000 km",
+        "lo": 800,
+        "hi": 1000,
+        "total": 3928,
+        "PAY": 759,
+        "R/B": 304,
+        "DEB": 2858,
+        "UNK": 7,
+        "share": 11.3
+      },
+      {
+        "label": "1000-1500 km",
+        "lo": 1000,
+        "hi": 1500,
+        "total": 3830,
+        "PAY": 1856,
+        "R/B": 208,
+        "DEB": 1764,
+        "UNK": 2,
+        "share": 11.1
+      },
+      {
+        "label": "1500-2000 km",
+        "lo": 1500,
+        "hi": 2000,
+        "total": 301,
+        "PAY": 74,
+        "R/B": 36,
+        "DEB": 191,
+        "UNK": 0,
+        "share": 0.9
+      },
+      {
+        "label": "2000 km 以上",
+        "lo": 2000,
+        "hi": null,
+        "total": 3358,
+        "PAY": 1945,
+        "R/B": 652,
+        "DEB": 760,
+        "UNK": 1,
+        "share": 9.7
+      }
+    ],
+    "sum": 34634,
+    "noPerigee": 694,
+    "unit": "km",
+    "note": "高度为近地点高度（PERIGEE 字段）。近地点决定大气阻力作用强度，是判断物体能在轨停留多久的关键量；远地点不用于本分布。"
+  },
+  "composition": [
+    {
+      "code": "PAY",
+      "label": "有效载荷",
+      "count": 20290,
+      "share": 57.4
+    },
+    {
+      "code": "DEB",
+      "label": "碎片",
+      "count": 12556,
+      "share": 35.5
+    },
+    {
+      "code": "R/B",
+      "label": "火箭残骸",
+      "count": 2427,
+      "share": 6.9
+    },
+    {
+      "code": "UNK",
+      "label": "未分类",
+      "count": 55,
+      "share": 0.2
+    }
+  ],
+  "statusCount": {
+    "(空白)": 1508,
+    "-": 1496,
+    "+": 16801,
+    "P": 440,
+    "X": 16,
+    "B": 24,
+    "S": 5
+  },
+  "byTypeStatus": {
+    "PAY": {
+      "(空白)": 1508,
+      "-": 1496,
+      "+": 16801,
+      "P": 440,
+      "X": 16,
+      "B": 24,
+      "S": 5
+    },
+    "R/B": {
+      "(空白)": 2423,
+      "+": 4
+    },
+    "DEB": {
+      "(空白)": 12556
+    },
+    "UNK": {
+      "(空白)": 55
+    }
+  },
+  "statusCodes": {
+    "+": "正常运行",
+    "-": "已失效",
+    "P": "部分运行",
+    "B": "备用",
+    "S": "待机",
+    "X": "已废弃",
+    "D": "已陨落",
+    "(空白)": "无状态记录"
+  }
+}
