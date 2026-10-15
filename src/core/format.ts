@@ -15,7 +15,7 @@ export function fixed(n: number, digits = 1): string {
   return n.toFixed(digits);
 }
 
-/** 百分比：传 0–100 的数值，返回 "95.1"（不含 % 号，由调用方加） */
+/** 百分比：传 0-100 的数值，返回 "95.1"（不含 % 号，由调用方加） */
 export function pct(n: number, digits = 1): string {
   return n.toFixed(digits);
 }

@@ -8,7 +8,7 @@
  * 设计约定：
  *   所有过渡都写在「目标值」上，由相机与图层内部缓动。滚动只负责设定目标，
  *   不直接写当前帧的数值，因此快速滚动不会产生跳动。
- *   章节之间不重置状态——下一个场景把需要的字段全部显式写出来，
+ *   章节之间不重置状态，下一个场景把需要的字段全部显式写出来，
  *   没写的字段沿用上一个场景的值。这条规则让跨章节的图层延续成为默认行为。
  */
 
@@ -18,6 +18,7 @@ import type { PointLayer } from '../core/pointCloud';
 import type { Globe } from '../core/globe';
 import type { StepState } from '../core/scrollStory';
 import type { HistoryData } from '../core/data';
+import type { InstrumentId, InstrumentIntent } from '../core/instrument';
 
 /** 三个碎片群在 debris 点云中的 groupId，与构建脚本的 DEBRIS_FILES 顺序一致。 */
 export const GROUP = { FENGYUN1C: 0, COSMOS2251: 1, IRIDIUM33: 2 } as const;
@@ -72,6 +73,15 @@ export interface SceneState {
   debrisFilter?: { lo: number; hi: number } | null;
   /** 碎片生存阈值：0 = 全部显示，1 = 全部隐藏。第五章用 */
   horizon?: number;
+
+  /**
+   * 这一步挂哪台仪器。null 或不写 = 没有仪器。
+   *
+   * 为什么仪器属于场景表：仪器与镜头是同一件事的两面。第三章把镜头压到
+   * 侧视、只留 750-850 那一层，同时就该有一张近地点直方图在旁边解释
+   * 「为什么是这一段」。分开维护会立刻出现「镜头已经切了、仪器还是上一台」。
+   */
+  instrument?: InstrumentId | null;
 }
 
 /** 场景表。键是文案层在 StepCopy.scene 中声明的标识。 */
@@ -127,6 +137,7 @@ const TABLE: Record<string, SceneState> = {
     catalogVisible: true,
     yearMax: null,
     debrisVisible: false,
+    instrument: 'altitude',
   },
 
   status: {
@@ -164,7 +175,7 @@ const TABLE: Record<string, SceneState> = {
   //
   // 这一章用的是同一个编目点云，只是给每个点加了一道「发射年 ≤ 当前年」的闸门。
   // 复用的理由是：观众看的必须是同一批点，否则「现在这么多是从那时这么长出来的」
-  // 这句话就不成立——换成两批不同的数据，画面再漂亮也只是示意图。
+  // 这句话就不成立，换成两批不同的数据，画面再漂亮也只是示意图。
   'growth-early': {
     pose: { azimuth: 0.3, elevation: 0.44, distance: 6.4, screenShift: 0.3 },
     categoryMix: 0,
@@ -189,6 +200,7 @@ const TABLE: Record<string, SceneState> = {
     catalogVisible: true,
     yearMax: 1980,
     debrisVisible: false,
+    instrument: 'year',
   },
 
   'growth-fragmentation': {
@@ -266,10 +278,11 @@ const TABLE: Record<string, SceneState> = {
     debrisOpacity: 1,
     debrisFilter: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
     horizon: 0,
+    instrument: 'perigee',
   },
 
   'fy-band': {
-    // 只留 750–850 km 这一层。其余碎片被筛掉后，双峰的位置直接可见。
+    // 只留 750-850 km 这一层。其余碎片被筛掉后，双峰的位置直接可见。
     pose: { azimuth: 1.5, elevation: 0.14, distance: 2.5, screenShift: 0.3 },
     categoryMix: 0,
     dim: 0,
@@ -317,7 +330,7 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    // 两个群一起显示：73.5–86.5° 这一段把两个群都包住，但排掉风云一号C
+    // 两个群一起显示：73.5-86.5° 这一段把两个群都包住，但排掉风云一号C
     debrisFilter: { lo: GROUP.COSMOS2251 - 0.5, hi: GROUP.IRIDIUM33 + 0.5 },
     horizon: 0,
   },
@@ -337,6 +350,7 @@ const TABLE: Record<string, SceneState> = {
     debrisOpacity: 1,
     debrisFilter: { lo: GROUP.COSMOS2251 - 0.5, hi: GROUP.IRIDIUM33 + 0.5 },
     horizon: 0,
+    instrument: 'plane',
   },
 
   // ---------- 第五章：它们不会自己消失 ----------
@@ -374,10 +388,11 @@ const TABLE: Record<string, SceneState> = {
     debrisOpacity: 1,
     debrisFilter: null,
     horizon: 0,
+    instrument: 'decay',
   },
 
   'decay-project': {
-    // 讲外推时的机位。与上一步完全相同，唯一的变量是时间——
+    // 讲外推时的机位。与上一步完全相同，唯一的变量是时间，
     // 读者要看的正是「同一张画面在四个时刻的样子」。
     pose: { azimuth: 1.2, elevation: 0.2, distance: 2.9, screenShift: 0.3 },
     categoryMix: 0,
@@ -392,6 +407,7 @@ const TABLE: Record<string, SceneState> = {
     debrisOpacity: 1,
     debrisFilter: null,
     horizon: 0,
+    instrument: 'decay',
   },
 
   'decay-kessler': {
@@ -429,8 +445,18 @@ export interface ChapterScenes {
   readonly currentSceneId: string;
   /** 当前生效的年份上限，null 表示不筛选。第二章的读数用它 */
   readonly yearMax: number | null;
-  /** 当前时间推进量（0–1），第五章的读数用它 */
+  /** 当前时间推进量（0-1），第五章的读数用它 */
   readonly horizon: number;
+  /** 当前场景该挂哪台仪器。null = 不挂。主循环用它切仪器 */
+  readonly instrument: InstrumentId | null;
+  /**
+   * 接收仪器的用户意图。
+   *
+   * 仪器不直接改 PointLayer，而是把「用户点了 400-600 公里这一层」
+   * 这件事抛到这里，由场景层决定怎么落到 uniform 上。这样仪器不需要知道
+   * 点云的接口，点云也不需要知道仪器的存在。
+   */
+  applyIntent(intent: InstrumentIntent): void;
 }
 
 export function createChapterScenes(
@@ -443,6 +469,93 @@ export function createChapterScenes(
   let currentSceneId = 'establish';
   let currentEmphasis: Set<number> | null = null;
   let yearMax: number | null = null;
+  /** 当前场景标识，applyIntent 需要按它判断用户输入该落到哪一层 */
+  let sceneNow = 'establish';
+
+  /**
+   * 用户输入覆盖层。
+   *
+   * 三处覆盖分别对应三台会发意图的仪器。为什么需要覆盖层而不是直接改
+   * 场景表：用户的输入优先于场景表，但必须在切场景时失效。否则用户把
+   * 年份轴拖到 1980 之后继续滚动，下一步会带着 1980 这个残留状态进去，
+   * 画面与文案就对不上了。
+   *
+   * reset 把三项全部清空，切仪器时由宿主调用一次。
+   */
+  const override = {
+    /** 第一章：只看某一段高度。null = 不筛选 */
+    band: null as { lo: number; hi: number | null } | null,
+    /** 第二章：用户拖到的年份。null = 跟随场景 */
+    year: null as number | null,
+    /** 第三章：用户选中的近地点档。null = 不筛选 */
+    bin: null as { lo: number; hi: number } | null,
+    /** 第四章：用户转动到的方位角。null = 跟随场景 */
+    azimuth: null as number | null,
+    /** 第五章：用户拖到的时间。null = 跟随场景 */
+    years: null as number | null,
+  };
+
+  function clearOverride() {
+    override.band = null;
+    override.year = null;
+    override.bin = null;
+    override.azimuth = null;
+    override.years = null;
+  }
+
+  /**
+   * 把用户意图翻译成图层参数。
+   *
+   * 每一项都同时改「哪个点可见」与「镜头怎么配合」：只筛点不动镜头，
+   * 读者会以为是自己看漏了；只动镜头不筛点，则什么都没发生。
+   */
+  function applyIntent(intent: InstrumentIntent) {
+    switch (intent.kind) {
+      case 'reset':
+        clearOverride();
+        break;
+
+      case 'altitude-band': {
+        override.band = { lo: intent.lo, hi: intent.hi };
+        // 编目层用近地点做区间筛选。upper 为 null 时给一个大数，
+        // 让「2000 公里以上」这一段也能被选中。
+        catalog.setMetricRange(intent.lo, intent.hi ?? 1e9);
+        break;
+      }
+
+      case 'year': {
+        override.year = intent.year;
+        yearMax = intent.year;
+        catalog.setYearMax(intent.year);
+        break;
+      }
+
+      case 'perigee-bin': {
+        override.bin = { lo: intent.lo, hi: intent.hi };
+        // 碎片层的 aMetric 存的是近地点，直接按它筛
+        debris.setMetricRange(intent.lo, intent.hi);
+        break;
+      }
+
+      case 'plane-angle': {
+        override.azimuth = intent.azimuth;
+        // 只改方位角，其余机位参数沿用当前场景
+        const base = stateFor(sceneNow).pose;
+        rig.setPose({
+          ...base,
+          azimuth: intent.azimuth,
+          screenShift: (base.screenShift ?? 0) * shiftFactor(),
+        });
+        break;
+      }
+
+      case 'horizon': {
+        override.years = intent.years;
+        debris.setHorizon(horizonFor(intent.years));
+        break;
+      }
+    }
+  }
 
   // 窄屏时叙事栏移到画面底部，地球不需要再向右让位。
   // 每次 apply 时读取窗口宽度：滚动过程中窗口尺寸变化会立即生效。
@@ -453,7 +566,7 @@ export function createChapterScenes(
   /**
    * 第五章的时间外推。
    *
-   * 把「时间推进 N 年」翻译成一个 0–1 的归一化时间。每个碎片在构建期
+   * 把「时间推进 N 年」翻译成一个 0-1 的归一化时间。每个碎片在构建期
    * 已经算好自己在第几年消失（按所在高度层的实测时间常数取样），除以
    * 时间轴跨度后写进 aLifetime，于是同一个滑块能同时表达
    * 「低层清空、高层纹丝不动」这件事。
@@ -468,7 +581,7 @@ export function createChapterScenes(
    * 章节内是否让时间随滚动推进。
    *
    * 只给「往后推」这一步。前面的两步（按层看、时间常数）讲的是对历史观测的
-   * 统计，画面应该停在「现在」不动——否则读者一边读「800 公里以上几乎一个都没动」，
+   * 统计，画面应该停在「现在」不动，否则读者一边读「800 公里以上几乎一个都没动」，
    * 一边看着碎片往下掉，反而分不清哪些是观测、哪些是外推。
    */
   const ADVANCING_SCENES = new Set<string>(['decay-project']);
@@ -481,11 +594,23 @@ export function createChapterScenes(
     const next = stateFor(scene);
     currentSceneId = scene;
 
+    // 切场景时清空用户输入：仪器表达的是「这一步的某个量」，
+    // 把上一步的筛选带到下一步没有意义，而且会让画面与文案对不上。
+    // 同一场景内反复 apply 不清空，否则拖动滑块会被每帧重置。
+    if (scene !== sceneNow) {
+      sceneNow = scene;
+      clearOverride();
+      catalog.setMetricRange(null, null);
+      catalog.setYearMax(next.yearMax ?? null);
+    }
+
     // 每一步内部再细分：进度 0→1 之间让镜头有轻微推进，
     // 使同一步内的滚动仍然有画面响应，不会完全静止。
     const push = 1 - Math.min(1, state.progress) * 0.055;
     rig.setPose({
       ...next.pose,
+      // 用户在第四章转过转盘时，方位角以用户的为准
+      azimuth: override.azimuth ?? next.pose.azimuth,
       distance: next.pose.distance * push,
       screenShift: (next.pose.screenShift ?? 0) * shiftFactor(),
     });
@@ -496,7 +621,7 @@ export function createChapterScenes(
     catalog.setCategoryMix(next.categoryMix);
     catalog.setDim(next.dim);
     catalog.setOpacity(next.opacity);
-    yearMax = next.yearMax ?? null;
+    yearMax = override.year ?? next.yearMax ?? null;
     catalog.setYearMax(yearMax);
 
     // 强调集合变化时才重写缓冲区，避免每帧上传 15,934 条数据
@@ -513,7 +638,8 @@ export function createChapterScenes(
     debris.points.visible = next.debrisVisible ?? false;
     if (next.debrisVisible) {
       debris.setOpacity(next.debrisOpacity ?? 1);
-      const f = next.debrisFilter;
+      // 用户选中了某一档近地点时以用户为准，否则用场景定义的区间
+      const f = override.bin ?? next.debrisFilter;
       if (f) debris.setMetricRange(f.lo, f.hi);
       else debris.setMetricRange(null, null);
     }
@@ -521,7 +647,10 @@ export function createChapterScenes(
     // ---------- 时间推进 ----------
     // 只有外推那一步按进度调时间；其余场景一律回到「现在」，
     // 避免往回滚时残留一个「未来」状态。
-    if (ADVANCING_SCENES.has(scene)) {
+    if (override.years !== null) {
+      // 用户拖过滑块，以用户的为准
+      debris.setHorizon(horizonFor(override.years));
+    } else if (ADVANCING_SCENES.has(scene)) {
       // 这一步内部再切成三段：50 / 100 / 200 年。
       // 用连续插值而不是跳变，是为了让「低层一个个掉下去」这个过程本身可见。
       const stops = history.projections.map((p) => p.years);
@@ -540,6 +669,7 @@ export function createChapterScenes(
 
   return {
     apply,
+    applyIntent,
     get currentSceneId() {
       return currentSceneId;
     },
@@ -548,6 +678,9 @@ export function createChapterScenes(
     },
     get horizon() {
       return debris.horizon;
+    },
+    get instrument() {
+      return stateFor(currentSceneId).instrument ?? null;
     },
   };
 }

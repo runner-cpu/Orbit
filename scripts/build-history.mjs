@@ -128,7 +128,7 @@ async function main() {
       inOrbit: s.inOrbit,
       deltaDebris: s.deltaDebris,
       // 该年的增量里多大比例来自碎片。1999、1982 这类年份接近 1，
-      // 2020 年之后为负——后期增长完全来自发射，碎片反而在减少。
+      // 2020 年之后为负，后期增长完全来自发射，碎片反而在减少。
       debrisShare: s.delta > 0 ? +(s.deltaDebris / s.delta).toFixed(3) : null,
     }));
 
@@ -161,7 +161,7 @@ async function main() {
       decayed: total - alive,
       /** 到历元为止已经再入的比例（%） */
       decayedShare: +((total - alive) / total * 100).toFixed(1),
-      /** 仍然在轨的数量——第五章的核心读数 */
+      /** 仍然在轨的数量，第五章的核心读数 */
       remaining: alive,
       remainingShare: +((alive / total) * 100).toFixed(1),
       decay,
@@ -177,17 +177,17 @@ async function main() {
   //   已再入对象的 PERIGEE 是它最后一次被记录到的轨道，不是事件发生时的轨道。
   //   因此在「它最终被清除时所处的高度层」这个意义上，这个分层是自洽的：
   //   层层对比得到的是「哪一层更容易把东西交出来」。
-  //   绝不能把它读成「碎片诞生时的高度分布」——那要用诞生时刻的根数，
+  //   绝不能把它读成「碎片诞生时的高度分布」，那要用诞生时刻的根数，
   //   而诞生时刻的根数已经不再维护。
   const BANDS = [
     { lo: 0, hi: 400, label: '400 km 以下' },
-    { lo: 400, hi: 500, label: '400–500 km' },
-    { lo: 500, hi: 600, label: '500–600 km' },
-    { lo: 600, hi: 700, label: '600–700 km' },
-    { lo: 700, hi: 750, label: '700–750 km' },
-    { lo: 750, hi: 800, label: '750–800 km' },
-    { lo: 800, hi: 850, label: '800–850 km' },
-    { lo: 850, hi: 900, label: '850–900 km' },
+    { lo: 400, hi: 500, label: '400-500 km' },
+    { lo: 500, hi: 600, label: '500-600 km' },
+    { lo: 600, hi: 700, label: '600-700 km' },
+    { lo: 700, hi: 750, label: '700-750 km' },
+    { lo: 750, hi: 800, label: '750-800 km' },
+    { lo: 800, hi: 850, label: '800-850 km' },
+    { lo: 850, hi: 900, label: '850-900 km' },
     { lo: 900, hi: Number.POSITIVE_INFINITY, label: '900 km 以上' },
   ];
 
@@ -274,7 +274,7 @@ async function main() {
 
     // 拟合要成立，需要足够的样本点，也需要这一层在观测期内真的清除过一些。
     // 清除数为 0 或个位数时，最小二乘给出的时间常数会是几千年这种
-    // 数学上成立、物理上没有意义的数字——那正是「几乎不清除」的另一种说法，
+    // 数学上成立、物理上没有意义的数字，那正是「几乎不清除」的另一种说法，
     // 但把它当成一个具体年数写进页面会造成误导。这里直接判为「无法估计」。
     const decayedCount = bandStats.find((x) => x.label === b.label)?.decayed ?? 0;
     if (pts.length < 4 || decayedCount < 8) {
@@ -325,7 +325,7 @@ async function main() {
   const projections = HORIZONS.map((h) => ({
     years: h,
     bands: bandDecay.map((d) => {
-      // 无法估计时间常数的层，按「不衰减」处理——这本身就是结论：
+      // 无法估计时间常数的层，按「不衰减」处理，这本身就是结论：
       // 观测期内它一个都没清掉，没有任何证据支持它会在这 200 年里消失。
       const frac = d.tauYears === null ? 1 : Math.exp(-h / d.tauYears);
       const remain = Math.round(d.alive * frac);
@@ -374,7 +374,7 @@ async function main() {
       '分层依据为编目记录中的近地点；已再入对象的近地点是它最后一次被记录到的轨道，' +
       '因此该表回答的是「哪一层更容易被清除」，不是「碎片诞生时的高度分布」。',
     projectionNote:
-      '时间常数由 2007–2026 年的实测在轨数量按指数衰减拟合得出（最小二乘），' +
+      '时间常数由 2007-2026 年的实测在轨数量按指数衰减拟合得出（最小二乘），' +
       '属于拟合外推而非轨道演化仿真；其用途是给出量级差异，不是预测具体某一年。',
   };
 
@@ -386,7 +386,7 @@ async function main() {
 
   // ---------- 报告 ----------
   console.log('=== 第二章：在轨数量逐年序列 ===');
-  console.log(`  年份范围      ${firstYear} – ${lastYear}`);
+  console.log(`  年份范围      ${firstYear} - ${lastYear}`);
   console.log(`  首年在轨      ${series[0].inOrbit}`);
   console.log(`  末年在轨      ${series[series.length - 1].inOrbit}`);
   console.log(`  逐年增量中位  ${medianDelta}`);

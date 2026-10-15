@@ -36,6 +36,14 @@ export interface CameraRig {
   get distance(): number;
   /** 用户是否正在手动操作 */
   get isUserDriving(): boolean;
+  /**
+   * 上一次按下到抬起之间指针移动的总距离（像素）。
+   *
+   * 为什么要暴露这个数：画布上同时有两种点击语义，「拖一下转视角」与
+   * 「点一个点看它是谁」。两者的区分只能靠位移：位移小到阈值以内才算点击。
+   * 这个判断必须由相机提供，因为只有它在跟踪位移。
+   */
+  get lastDragDistance(): number;
   /** 把当前机位写回目标，用于用户操作后避免镜头跳回 */
   commitUserPose(): void;
   /** 重置手动偏移 */
@@ -63,6 +71,7 @@ export function createCameraRig(
   let dragging = false;
   let lastX = 0;
   let lastY = 0;
+  let dragDistance = 0;
   let settleTimer = 0;
 
   const minDistance = SCENE_EARTH_RADIUS * 1.22;
@@ -73,6 +82,7 @@ export function createCameraRig(
     userActive = true;
     lastX = e.clientX;
     lastY = e.clientY;
+    dragDistance = 0;
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add('is-grabbing');
   };
@@ -83,6 +93,8 @@ export function createCameraRig(
     const dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
+    // 累加位移，供上层区分「拖拽」与「点击」
+    dragDistance += Math.abs(dx) + Math.abs(dy);
     userTarget.azimuth -= dx * 0.005;
     userTarget.elevation = Math.max(
       -1.45,
@@ -211,6 +223,9 @@ export function createCameraRig(
     },
     get isUserDriving() {
       return userActive;
+    },
+    get lastDragDistance() {
+      return dragDistance;
     },
     commitUserPose() {
       userTarget.azimuth = userOffset.azimuth;

@@ -321,7 +321,7 @@ body {
 }
 
 /* 时间切片读数：只在第二章的时间轴里出现，其余场景由脚本加 hidden 收起。
-   放在视距与帧率之间，因为它是画面状态的直接解释——
+   放在视距与帧率之间，因为它是画面状态的直接解释，
    点变少不是渲染出问题，而是时间被往回拨了。 */
 .field-year[hidden] {
   display: none;
@@ -673,18 +673,114 @@ em {
   border-left-color: var(--warn);
 }
 
-/* 来源标注：紧贴数据出现，不集中放到页脚 */
-.cite {
-  margin-top: 22px;
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--ink-faint);
-  max-width: 60ch;
+/* 来源与口径：默认折起来，不占正文动线。
+   评审需要核验时展开，读者不需要时可以完全忽略它。
+   summary 固定写「依据」两个字：同一个动作在全页反复出现，
+   换说法只会让读者每次都要重新识别一次。 */
+.fold {
+  margin: 20px 0 0;
+  border-top: 1px solid var(--line);
 }
 
-.cite b {
+.fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 2px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 三角用 CSS 画，避免不同浏览器给 list-style 的默认字形不一致 */
+.fold > summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform 0.18s ease;
+}
+
+.fold[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.fold > summary:hover {
+  color: var(--ink-dim);
+}
+
+.fold[open] > summary {
+  color: var(--ink-dim);
+}
+
+.fold-body {
+  padding: 8px 0 4px;
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--ink-faint);
+  max-width: 62ch;
+}
+
+/* 折叠块内部一律用小一号字与更弱的色阶，且不受宿主页面字号规则影响。
+   选择器写成 .fold .fold-body x 而不是 .fold-body x：方法页有
+   `.methods p { font-size: 14.5px }` 这类同权重的规则，靠源码顺序决胜太脆弱。 */
+.fold .fold-body p {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--ink-faint);
+}
+
+.fold .fold-body p:last-child {
+  margin-bottom: 0;
+}
+
+.fold .fold-body ul {
+  margin: 0 0 12px;
+}
+
+.fold .fold-body li {
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--ink-faint);
+}
+
+.fold .fold-body strong {
   color: var(--ink-dim);
   font-weight: 500;
+}
+
+.fold .fold-body em {
+  box-shadow: none;
+  color: var(--ink-dim);
+}
+
+/* 章节过渡：一行式，替代原来的「小结」整步。
+   它只给方向，不复述刚看过的数字。 */
+.next-cue {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 30px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.next-cue-k {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
 }
 
 /* ============================================================================
@@ -865,8 +961,8 @@ em {
 .methods {
   position: relative;
   z-index: 10;
-  background: linear-gradient(180deg, transparent, rgba(4, 7, 13, 0.96) 12%);
-  padding: 12vh var(--gutter) calc(var(--hud-h) + 9vh);
+  background: linear-gradient(180deg, transparent, rgba(4, 7, 13, 0.96) 10%);
+  padding: 8vh var(--gutter) calc(var(--hud-h) + 5vh);
 }
 
 .methods-inner {
@@ -886,6 +982,21 @@ em {
 
 .methods h3:first-of-type {
   margin-top: 34px;
+}
+
+/* 方法页的折叠组：这一页默认只有标题、一行来源与规格网格，
+   其余全部收起来。评审需要逐条核验时再展开。 */
+.method-folds {
+  margin: 44px 0 0;
+}
+
+.method-folds .fold:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.method-folds .fold > summary {
+  padding: 14px 0;
+  font-size: 12.5px;
 }
 
 .methods p,
@@ -1051,6 +1162,551 @@ em {
 
 @media (prefers-reduced-motion: reduce) {
   .jump-fill {
+    animation: none;
+  }
+}
+/* ============================================================================
+   仪器层
+   ----------------------------------------------------------------------------
+   每章一台带刻度、可操作的仪器。与三维场景叠在同一个视口里：球在底层，
+   仪器在上层，落在右半区的下半部分。
+   为什么仪器用 DOM 而不是画进 WebGL：刻度、标签、hover 命中检测是 DOM 的
+   强项，在 canvas 里做这些要自己写命中检测与文字排版。球继续走 WebGL。
+   所有仪器共用同一套刻度样式，避免各写一份导致读数看起来不像一套东西。
+   ========================================================================== */
+.instrument-layer {
+  position: fixed;
+  z-index: 12;
+  left: calc(var(--gutter) * 2 + var(--rail-w));
+  right: var(--gutter);
+  bottom: calc(var(--hud-h) + 18px);
+  max-width: 620px;
+  margin-left: auto;
+  pointer-events: none;
+}
+
+.instrument {
+  pointer-events: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  /* 靠背板把仪器从点云上抬起来：没有它，密集的点会穿过刻度线 */
+  backdrop-filter: blur(9px);
+  padding: 14px 16px 10px;
+  animation: instrument-in 0.42s var(--ease) both;
+}
+
+.instrument:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.instrument[hidden] {
+  display: none;
+}
+
+@keyframes instrument-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.instrument-read {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: var(--ink-mid);
+  min-height: 1.4em;
+}
+
+.instrument[data-user-driven='true'] .instrument-read {
+  color: var(--accent);
+}
+
+/* ---------- 第一章：高度剖面尺 ---------- */
+
+.instrument-altitude {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 0 12px;
+}
+
+.alt-axis {
+  position: relative;
+  height: 210px;
+}
+
+.alt-tick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--line);
+}
+
+.alt-tick-label {
+  position: absolute;
+  left: 0;
+  top: -8px;
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+
+.alt-bars {
+  position: relative;
+  height: 210px;
+  border-left: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.alt-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.alt-bar-fill {
+  display: block;
+  height: 62%;
+  background: var(--accent-dim);
+  opacity: 0.55;
+  transition: opacity 0.18s var(--ease), background-color 0.18s var(--ease);
+}
+
+.alt-bar-value {
+  font-size: 11px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.alt-bar:hover .alt-bar-fill {
+  opacity: 0.85;
+}
+
+.alt-bar[data-active='true'] .alt-bar-fill {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.alt-bar[data-active='true'] .alt-bar-value {
+  color: var(--accent);
+}
+
+.alt-bar:focus-visible {
+  outline: 1px solid var(--accent);
+}
+
+/* ---------- 第二章：年份轴 ---------- */
+
+.instrument-year {
+  position: relative;
+}
+
+.year-svg {
+  display: block;
+  width: 100%;
+  height: 132px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.year-axis-line,
+.year-tick {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.year-curve {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.year-cursor-line {
+  stroke: var(--warn);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.year-cursor-grip {
+  fill: var(--warn);
+}
+
+.year-tick-label {
+  fill: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.instrument-year[data-user-driven='true'] .year-cursor-grip {
+  fill: var(--accent);
+}
+
+/* ---------- 第三章：近地点直方图 ---------- */
+
+.instrument-perigee {
+  position: relative;
+}
+
+/* 列之间不留 gap：横轴刻度是按公里线性定位的百分比，任何固定像素的
+   间距都会随列数累积成可见的错位。视觉上的分隔改由柱子自身的内缩实现。 */
+.pg-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  height: 150px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.pg-col {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* 没有碎片的档位：占位但不接受点击，让横轴刻度与柱位严格对应 */
+.pg-gap {
+  cursor: default;
+  pointer-events: none;
+  border-bottom: 0;
+}
+
+.pg-fill {
+  display: block;
+  width: calc(100% - 2px);
+  margin: 0 1px;
+  background: var(--cat-debris);
+  opacity: 0.5;
+  transition: opacity 0.18s var(--ease);
+}
+
+.pg-cap {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 0.18s var(--ease);
+  pointer-events: none;
+}
+
+/* 主峰两档默认显示数量：它们高度接近，不标数字读不出差别 */
+.pg-cap[data-peak='true'] {
+  opacity: 1;
+  color: var(--ink-dim);
+}
+
+.pg-col:hover .pg-fill {
+  opacity: 0.8;
+}
+
+.pg-col:hover .pg-cap {
+  opacity: 1;
+}
+
+.pg-col[data-active='true'] .pg-fill {
+  opacity: 1;
+}
+
+.pg-col[data-active='true'] .pg-cap {
+  opacity: 1;
+  color: var(--cat-debris);
+}
+
+.pg-col:focus-visible {
+  outline: 1px solid var(--accent);
+}
+
+.pg-axis {
+  position: relative;
+  height: 22px;
+  margin-top: 4px;
+}
+
+.pg-tick {
+  position: absolute;
+  top: 0;
+  height: 4px;
+  border-left: 1px solid var(--line);
+}
+
+.pg-tick-label {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+
+/* ---------- 第四章：双轨道面转盘 ---------- */
+
+.instrument-plane {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: center;
+  gap: 0 16px;
+}
+
+.plane-svg {
+  display: block;
+  width: 200px;
+  height: 200px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.plane-ring {
+  fill: none;
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.plane-a .plane-ring {
+  stroke: var(--cat-debris);
+}
+
+.plane-b .plane-ring {
+  stroke: var(--amber);
+}
+
+.plane-cross-line {
+  stroke: var(--line-bright);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.plane-angle-label {
+  fill: var(--ink);
+  font-size: 13px;
+}
+
+/* ---------- 第五章：时间滑块 ---------- */
+
+.instrument-decay {
+  position: relative;
+}
+
+.decay-bands {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+
+.decay-band {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 10px;
+}
+
+.decay-band-label {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+.decay-band-bar {
+  position: relative;
+  height: 7px;
+  background: rgba(22, 51, 74, 0.5);
+}
+
+.decay-band-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--cat-debris);
+  opacity: 0.7;
+}
+
+.decay-band-value {
+  font-size: 10.5px;
+  color: var(--ink-mid);
+  text-align: right;
+}
+
+.decay-track {
+  position: relative;
+  height: 26px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.decay-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 12px;
+  height: 2px;
+  background: var(--line-strong);
+}
+
+.decay-handle {
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.decay-handle-grip {
+  width: 3px;
+  height: 18px;
+  background: var(--warn);
+}
+
+.instrument-decay[data-user-driven='true'] .decay-handle-grip {
+  background: var(--accent);
+}
+
+.decay-ticks {
+  position: relative;
+  height: 16px;
+}
+
+.decay-tick {
+  position: absolute;
+  top: 0;
+  height: 4px;
+  border-left: 1px solid var(--line);
+}
+
+.decay-tick-label {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* ---------- 对象读数卡 ---------- */
+
+.pick-card {
+  position: fixed;
+  z-index: 30;
+  width: 220px;
+  padding: 12px 14px 10px;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.pick-card[hidden] {
+  display: none;
+}
+
+.pick-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pick-close:hover {
+  color: var(--ink);
+}
+
+.pick-kicker {
+  margin: 0 0 2px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+.pick-name {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.pick-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.pick-rows dt {
+  color: var(--ink-dim);
+}
+
+.pick-rows dd {
+  margin: 0;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* 窄屏：仪器压到底部，与叙事栏共用同一块区域 */
+@media (max-width: 1080px) {
+  .instrument-layer {
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: calc(var(--hud-h) + 8px);
+    max-width: none;
+  }
+  .instrument-plane {
+    grid-template-columns: 140px minmax(0, 1fr);
+  }
+  .plane-svg {
+    width: 140px;
+    height: 140px;
+  }
+}
+
+@media (max-width: 620px) {
+  .instrument {
+    padding: 10px 12px 8px;
+  }
+  .alt-bars,
+  .alt-axis {
+    height: 150px;
+  }
+  .pg-bars {
+    height: 110px;
+  }
+  .decay-band {
+    grid-template-columns: 78px minmax(0, 1fr) 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .instrument {
     animation: none;
   }
 }

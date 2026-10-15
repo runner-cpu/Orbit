@@ -57,7 +57,7 @@ export interface Figures {
   /** 可定位集合中处于近地轨道（<2000 km）的数量与占比 */
   leo: { count: number; share: number };
   /** 可定位集合中的高度分层，用于阐述「挤在同一层」 */
-  bands: { label: string; count: number; share: number }[];
+  bands: { label: string; lo: number; hi: number; count: number; share: number }[];
   /** 发射年份累计序列（可定位集合），作为第二章的对照口径 */
   launchCumulative: { year: number; count: number; cumulative: number }[];
   /** 可定位集合中 2020 年及以后发射的占比 */
@@ -118,7 +118,7 @@ function analyzeCatalog(data: LoadedData): Pick<
   const yearCount = new Map<number, number>();
 
   // 分层边界按 LEO 内部的物理分界选取，而不是等距分箱：
-  // 400–600 km 是当前的载人航天与主力星座高度，600 km 以上大气阻力开始
+  // 400 至 600 km 是当前的载人航天与主力星座高度，600 km 以上大气阻力开始
   // 显著减弱，800 km 以上几乎不再起清除作用。分箱要能读出这些差别。
   const bandDefs: { label: string; lo: number; hi: number }[] = [
     { label: '200-400 km', lo: 200, hi: 400 },
@@ -161,6 +161,8 @@ function analyzeCatalog(data: LoadedData): Pick<
     leo: { count: leo, share: (leo / n) * 100 },
     bands: bandDefs.map((b, i) => ({
       label: b.label,
+      lo: b.lo,
+      hi: b.hi,
       count: bandCounts[i],
       share: (bandCounts[i] / n) * 100,
     })),

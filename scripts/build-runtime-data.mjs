@@ -146,7 +146,7 @@ function categoryOf(satcat) {
 
 /**
  * 从 TLE 第一行取国际编号，推出发射年份。
- * 第一行第 10–17 字符为国际编号，格式如 "98067A" → 1998 年。
+ * 第一行第 10-17 字符为国际编号，格式如 "98067A" → 1998 年。
  */
 function launchYear(line1) {
   const desig = line1.slice(9, 17).trim();
@@ -388,13 +388,13 @@ async function main() {
   console.log('  轨道类型      ' + Object.entries(classHist).map(([k, v]) => `${k} ${v}`).join(' / '));
   console.log('  对象类别      ' + Object.entries(catHist).map(([k, v]) => `${k} ${v}`).join(' / '));
   const years = Object.keys(yearHist).map(Number).filter((y) => y > 0).sort();
-  console.log(`  发射年份范围  ${years[0]} – ${years[years.length - 1]}`);
+  console.log(`  发射年份范围  ${years[0]} - ${years[years.length - 1]}`);
 
   console.log('\n=== 第三、四章：碎片 ===');
   for (const g of debrisMeta) {
     console.log(
       `  ${g.label.padEnd(14)} ${String(g.count).padStart(5)} 个 | 近地点中位 ${g.perigeeMedianKm} km | ` +
-        `倾角 ${g.inclMinDeg}–${g.inclMaxDeg}° | ≥800km ${g.above800km}`
+        `倾角 ${g.inclMinDeg}-${g.inclMaxDeg}° | ≥800km ${g.above800km}`
     );
   }
   console.log(`  点云体积      ${(debrisBin / 1024).toFixed(1)} KB (未压缩)`);

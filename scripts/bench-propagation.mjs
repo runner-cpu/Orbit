@@ -84,7 +84,7 @@ function main() {
   });
 
   // 3) 无分配版：直接写入预分配的 Float32Array，供 BufferGeometry 直接使用。
-  //    这是最终采用的方案——省掉每秒数万次对象分配与随之而来的 GC 停顿。
+  //    这是最终采用的方案，省掉每秒数万次对象分配与随之而来的 GC 停顿。
   console.log('\n=== 解算：预分配缓冲版（最终采用）===');
   const positions = new Float32Array(all.length * 3);
   const noAllocMs = bench('propagate 全量（写入 Float32Array）', () => {

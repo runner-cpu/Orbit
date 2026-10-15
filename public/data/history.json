@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-14T11:50:17.313Z",
+  "generatedAt": "2026-10-15T07:16:47.632Z",
   "source": "CelesTrak SATCAT",
   "sourceNote": "历史在轨数量由今天的编目记录倒推：对每个年份统计「发射年 ≤ 该年且（未再入或再入年 > 该年）」的记录数。已再入且已被移出编目的对象不在其中，因此历史值略低于当年的实时编目数。",
   "firstYear": 1957,
@@ -992,7 +992,7 @@
       "removedShare": 99.1
     },
     {
-      "label": "400–500 km",
+      "label": "400-500 km",
       "lo": 400,
       "hi": 500,
       "alive": 40,
@@ -1001,7 +1001,7 @@
       "removedShare": 85.5
     },
     {
-      "label": "500–600 km",
+      "label": "500-600 km",
       "lo": 500,
       "hi": 600,
       "alive": 163,
@@ -1010,7 +1010,7 @@
       "removedShare": 41.8
     },
     {
-      "label": "600–700 km",
+      "label": "600-700 km",
       "lo": 600,
       "hi": 700,
       "alive": 406,
@@ -1019,7 +1019,7 @@
       "removedShare": 24.8
     },
     {
-      "label": "700–750 km",
+      "label": "700-750 km",
       "lo": 700,
       "hi": 750,
       "alive": 361,
@@ -1028,7 +1028,7 @@
       "removedShare": 7.7
     },
     {
-      "label": "750–800 km",
+      "label": "750-800 km",
       "lo": 750,
       "hi": 800,
       "alive": 638,
@@ -1037,7 +1037,7 @@
       "removedShare": 1.5
     },
     {
-      "label": "800–850 km",
+      "label": "800-850 km",
       "lo": 800,
       "hi": 850,
       "alive": 644,
@@ -1046,7 +1046,7 @@
       "removedShare": 0.2
     },
     {
-      "label": "850–900 km",
+      "label": "850-900 km",
       "lo": 850,
       "hi": 900,
       "alive": 52,
@@ -1078,7 +1078,7 @@
       "note": null
     },
     {
-      "label": "400–500 km",
+      "label": "400-500 km",
       "lo": 400,
       "hi": 500,
       "initial": 275,
@@ -1089,7 +1089,7 @@
       "note": null
     },
     {
-      "label": "500–600 km",
+      "label": "500-600 km",
       "lo": 500,
       "hi": 600,
       "initial": 280,
@@ -1100,7 +1100,7 @@
       "note": null
     },
     {
-      "label": "600–700 km",
+      "label": "600-700 km",
       "lo": 600,
       "hi": 700,
       "initial": 540,
@@ -1111,7 +1111,7 @@
       "note": null
     },
     {
-      "label": "700–750 km",
+      "label": "700-750 km",
       "lo": 700,
       "hi": 750,
       "initial": 391,
@@ -1122,7 +1122,7 @@
       "note": null
     },
     {
-      "label": "750–800 km",
+      "label": "750-800 km",
       "lo": 750,
       "hi": 800,
       "initial": 648,
@@ -1133,7 +1133,7 @@
       "note": null
     },
     {
-      "label": "800–850 km",
+      "label": "800-850 km",
       "lo": 800,
       "hi": 850,
       "initial": 645,
@@ -1144,7 +1144,7 @@
       "note": "观测期内清除过少，无法估计"
     },
     {
-      "label": "850–900 km",
+      "label": "850-900 km",
       "lo": 850,
       "hi": 900,
       "initial": 52,
@@ -1177,43 +1177,43 @@
           "estimated": true
         },
         {
-          "label": "400–500 km",
+          "label": "400-500 km",
           "remaining": 0,
           "share": 0,
           "estimated": true
         },
         {
-          "label": "500–600 km",
+          "label": "500-600 km",
           "remaining": 36,
           "share": 12.9,
           "estimated": true
         },
         {
-          "label": "600–700 km",
+          "label": "600-700 km",
           "remaining": 192,
           "share": 35.6,
           "estimated": true
         },
         {
-          "label": "700–750 km",
+          "label": "700-750 km",
           "remaining": 301,
           "share": 77,
           "estimated": true
         },
         {
-          "label": "750–800 km",
+          "label": "750-800 km",
           "remaining": 619,
           "share": 95.5,
           "estimated": true
         },
         {
-          "label": "800–850 km",
+          "label": "800-850 km",
           "remaining": 644,
           "share": 99.8,
           "estimated": false
         },
         {
-          "label": "850–900 km",
+          "label": "850-900 km",
           "remaining": 52,
           "share": 100,
           "estimated": false
@@ -1237,43 +1237,43 @@
           "estimated": true
         },
         {
-          "label": "400–500 km",
+          "label": "400-500 km",
           "remaining": 0,
           "share": 0,
           "estimated": true
         },
         {
-          "label": "500–600 km",
+          "label": "500-600 km",
           "remaining": 8,
           "share": 2.9,
           "estimated": true
         },
         {
-          "label": "600–700 km",
+          "label": "600-700 km",
           "remaining": 91,
           "share": 16.9,
           "estimated": true
         },
         {
-          "label": "700–750 km",
+          "label": "700-750 km",
           "remaining": 251,
           "share": 64.2,
           "estimated": true
         },
         {
-          "label": "750–800 km",
+          "label": "750-800 km",
           "remaining": 600,
           "share": 92.6,
           "estimated": true
         },
         {
-          "label": "800–850 km",
+          "label": "800-850 km",
           "remaining": 644,
           "share": 99.8,
           "estimated": false
         },
         {
-          "label": "850–900 km",
+          "label": "850-900 km",
           "remaining": 52,
           "share": 100,
           "estimated": false
@@ -1297,43 +1297,43 @@
           "estimated": true
         },
         {
-          "label": "400–500 km",
+          "label": "400-500 km",
           "remaining": 0,
           "share": 0,
           "estimated": true
         },
         {
-          "label": "500–600 km",
+          "label": "500-600 km",
           "remaining": 0,
           "share": 0,
           "estimated": true
         },
         {
-          "label": "600–700 km",
+          "label": "600-700 km",
           "remaining": 21,
           "share": 3.9,
           "estimated": true
         },
         {
-          "label": "700–750 km",
+          "label": "700-750 km",
           "remaining": 174,
           "share": 44.5,
           "estimated": true
         },
         {
-          "label": "750–800 km",
+          "label": "750-800 km",
           "remaining": 565,
           "share": 87.2,
           "estimated": true
         },
         {
-          "label": "800–850 km",
+          "label": "800-850 km",
           "remaining": 644,
           "share": 99.8,
           "estimated": false
         },
         {
-          "label": "850–900 km",
+          "label": "850-900 km",
           "remaining": 52,
           "share": 100,
           "estimated": false
@@ -1349,5 +1349,5 @@
     }
   ],
   "bandNote": "分层依据为编目记录中的近地点；已再入对象的近地点是它最后一次被记录到的轨道，因此该表回答的是「哪一层更容易被清除」，不是「碎片诞生时的高度分布」。",
-  "projectionNote": "时间常数由 2007–2026 年的实测在轨数量按指数衰减拟合得出（最小二乘），属于拟合外推而非轨道演化仿真；其用途是给出量级差异，不是预测具体某一年。"
+  "projectionNote": "时间常数由 2007-2026 年的实测在轨数量按指数衰减拟合得出（最小二乘），属于拟合外推而非轨道演化仿真；其用途是给出量级差异，不是预测具体某一年。"
 }

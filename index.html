@@ -72,6 +72,24 @@
     <main id="story"></main>
 
     <!--
+      仪器层：每章挂一台带刻度、可操作的仪器（高度尺、年份轴、直方图等）。
+      与三维场景叠在同一个视口里，球在底层，仪器在上层。
+      内容由 src/core/instrument.ts 在运行时按场景挂载，不在 HTML 里写死。
+    -->
+    <div class="instrument-layer" id="instrument-layer" aria-live="off"></div>
+
+    <!--
+      对象读数卡：点三维场景里任意一个点后弹出，显示该对象的类别、
+      高度、倾角与发射年。位置由 main.ts 按点击坐标写入。
+    -->
+    <div class="pick-card" id="pick-card" hidden>
+      <button class="pick-close" id="pick-close" type="button" aria-label="关闭读数卡">×</button>
+      <p class="pick-kicker mono" id="pick-kind">-</p>
+      <p class="pick-name" id="pick-name">-</p>
+      <dl class="pick-rows" id="pick-rows"></dl>
+    </div>
+
+    <!--
       尾页：数据与方法。
       这不是附录，而是参赛要求里「注明资料来源」与「可核验」的直接落点，
       因此作为正式章节放在叙事之后。

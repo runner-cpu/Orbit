@@ -6,9 +6,17 @@
  *   也便于逐条核对每个数字的出处。这里出现的每个数值都来自 Figures，
  *   不在文案里硬编码数字，避免数据更新后文案与现实脱节。
  *
- * 叙事原则（全片一致）：
- *   先给事实，再给解释，最后给结论。不使用煽情词汇，不做灾难化渲染，
- *   数字后面一定跟着「这个数字意味着什么」。
+ * 每步的写作预算（全片一致，硬约束）：
+ *   一个 h2（不超过 12 字）+ 一句 lead（不超过 40 字）+ 一个数据标注（不超过 20 字）。
+ *   合计不超过 72 字。超出的内容一律不进正文，而是：
+ *     1. 能画成图的，交给同章的仪器（instruments/）；
+ *     2. 属于方法说明的，收进「依据」折叠块；
+ *     3. 属于结论复述的，删掉。
+ *
+ * 为什么把方法说明折起来而不是删掉：
+ *   参赛评审要求「涉及科学知识须注明资料来源」与「过程与结论可核验」，
+ *   因此这些内容必须留在页面上，但不能占据正文的阅读动线。
+ *   <details> 让它默认不占位、需要时可展开。
  */
 
 import { int, fixed } from '../core/format';
@@ -27,27 +35,39 @@ export interface StepCopy {
   pinRatio: number;
 }
 
+/**
+ * 把方法说明折起来。
+ *
+ * 默认 summary 只写「依据」两个字：它是全页反复出现的同一个动作，
+ * 不需要每次换一个说法。少数步骤的折叠块内容不止于口径（例如还包含
+ * 一个概念的出处），可以传 label 换一个更贴切的说法。
+ */
+export function fold(body: string, label = '依据'): string {
+  return `<details class="fold"><summary>${label}</summary><div class="fold-body">${body}</div></details>`;
+}
+
+/** 章节末尾一行式过渡。替代原来的「小结」步，只给方向不给复述。 */
+export function nextCue(text: string): string {
+  return `<p class="next-cue"><span class="next-cue-k">下一节</span>${text}</p>`;
+}
+
 export const CHAPTER_ONE_STEPS: StepCopy[] = [
   {
     id: 'intro',
     nav: '开场',
     scene: 'establish',
-    pinRatio: 0.9,
+    pinRatio: 1,
     render: () => `
       <p class="kicker">近地轨道 / 编目数据</p>
       <h1>轨道之上</h1>
       <p class="lead">
-        在你读到这句话的时间里，头顶大约 400 公里的高度上，有超过一万六千个
-        人造物体正以每秒 7.6 公里的速度掠过。
+        头顶 400 公里，一万六千个物体正以每秒 7.6 公里掠过。
       </p>
-      <p>
-        这一页把它们全部画出来。每一个点对应一个真实存在的物体，
-        位置由 CelesTrak 公开发布的轨道编目数据确定，没有一个是装饰。
-      </p>
+      <p>画面里每个点都是真实物体，位置由公开轨道根数解算。</p>
       <div class="hint">
         <span><kbd>拖动</kbd> 旋转视角</span>
         <span><kbd>双击</kbd> 复位</span>
-        <span><kbd>Shift</kbd> + 滚轮缩放</span>
+        <span><kbd>点选</kbd> 看它是谁</span>
       </div>
     `,
   },
@@ -55,15 +75,12 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
     id: 'how-many',
     nav: '有多少',
     scene: 'wide',
-    pinRatio: 1.1,
+    pinRatio: 1,
     render: (f) => `
       <div class="chapter-mark"><b>第一节</b><span>现在头顶上有多少东西</span></div>
-      <h2>先看总数的两个口径</h2>
-      <p>
-        自 1957 年第一颗人造卫星入轨以来，人类一共向轨道编入过
-        <strong>${int(f.cataloguedAllTime)}</strong> 个目标。
-        其中已经再入大气层烧毁的占多数，目前仍在轨的是
-        <strong>${int(f.cataloguedInOrbit)}</strong> 个。
+      <h2>先看两个口径</h2>
+      <p class="lead">
+        累计编入 ${int(f.cataloguedAllTime)} 个目标，仍在轨 ${int(f.cataloguedInOrbit)} 个。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -77,30 +94,25 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
         <div class="readout">
           <span class="readout-k">其中正在工作的载荷</span>
           <span class="readout-v">${int(f.workingPayloads)}<small>个</small></span>
-          <div class="readout-note">
-            占在轨总数的 ${fixed((f.workingPayloads / f.cataloguedInOrbit) * 100)}%。
-            其余为碎片、火箭残骸、已失效或状态未记录的载荷。
-          </div>
         </div>
       </div>
-      <p class="cite">
-        <b>口径</b> 两个数字来自不同的数据集。轨道编目总数取自 SATCAT（CelesTrak 卫星编目），
-        含已再入目标；「正在工作」的判据是编目状态码为「正常运行」。
-        本节其余所有读数均从 GP 轨道根数现场解算，见尾页「数据与方法」。
-      </p>
+      ${fold(`
+        <p>
+          两个数字来自不同的数据集。轨道编目总数取自 SATCAT（CelesTrak 卫星编目），
+          含已再入目标；「正在工作」的判据是编目状态码为「正常运行」。
+          本节其余所有读数均从 GP 轨道根数现场解算。
+        </p>`)}
     `,
   },
   {
     id: 'not-located',
     nav: '能看到什么',
     scene: 'locatable',
-    pinRatio: 1.2,
+    pinRatio: 1,
     render: (f) => `
-      <h2>你能看到的东西，不到在轨总数的六成</h2>
-      <p>
-        画面里这 ${int(f.located)} 个点，是目前能拿到公开轨道根数、
-        因而可以被逐一定位的对象。另外 <strong>${int(f.notLocatable)}</strong> 个
-        编目在轨目标没有公开根数，画不出来。
+      <h2>画不出来的那一半</h2>
+      <p class="lead">
+        能定位的 ${int(f.located)} 个，其余 ${int(f.notLocatable)} 个没有公开根数。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -113,29 +125,22 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
         <div class="readout">
           <span class="readout-k">编目在轨但无公开根数</span>
           <span class="readout-v is-warn">${int(f.notLocatable)}<small>个</small></span>
-          <div class="readout-note">
-            绝大多数是碎片与火箭残骸：它们没有在工作的发射方，也就没有人更新根数。
-          </div>
         </div>
       </div>
-      <div class="finding">
+      ${fold(`
         <p>
-          这意味着这一页画出的景象是<b>偏乐观</b>的：能画出来的以在工作的卫星为主，
-          真正的碎片环境主体恰恰在画不出来的那一半里。
-        </p>
-      </div>
-      <p class="cite">
-        <b>方法</b> 可定位数取自本作解算的 GP 编目集合；无公开根数者由
-        SATCAT 在轨总数与本集合求差得出。两者相减即为 ${int(f.cataloguedInOrbit)} −
-        ${int(f.located)} = ${int(f.notLocatable)}。
-      </p>
+          可定位数取自本作解算的 GP 编目集合；无公开根数者由 SATCAT 在轨总数与本集合求差得出，
+          即 ${int(f.cataloguedInOrbit)} − ${int(f.located)} = ${int(f.notLocatable)}。
+          这一半绝大多数是碎片与火箭残骸：它们没有在工作的发射方，也就没有人更新根数。
+          因此这一页画出的景象是偏乐观的。
+        </p>`)}
     `,
   },
   {
     id: 'crowding',
     nav: '挤在哪一层',
     scene: 'band',
-    pinRatio: 1.3,
+    pinRatio: 1,
     render: (f) => {
       const rows = f.bands
         .filter((b) => b.count > 0)
@@ -152,29 +157,21 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
         .join('');
 
       return `
-      <h2>不是均匀铺开，而是挤在同一层</h2>
-      <p>
-        把 ${int(f.located)} 个可定位对象按轨道高度分层，分布高度不均匀。
-        近地轨道（2000 公里以下）占了 <strong>${fixed(f.leo.share)}%</strong>，
-        其中绝大多数落在 <strong>400 至 600 公里</strong>这一段。
+      <h2>挤在同一层</h2>
+      <p class="lead">
+        近地轨道占 ${fixed(f.leo.share)}%，其中绝大多数在 400 至 600 公里。
       </p>
       <div class="bands">${rows}</div>
-      <p>
-        这一段高度既够高，发射成本又相对可控，是载人航天、遥感与大型星座
-        共同选择的工作层。代价是这一个高度层要同时容纳
-        <strong>${fixed(f.recentShare)}%</strong> 于 2020 年以后发射的对象。
-      </p>
       <div class="finding">
-        <p>
-          近地轨道不是一片空旷的场地，而是一个有实际容量上限的有限空间，
-          并且正在被集中占用。
-        </p>
+        <p>近地轨道不是空旷场地，而是一个有容量上限的有限空间。</p>
       </div>
-      <p class="cite">
-        <b>口径</b> 高度为近地点高度，由 GP 轨道根数的平均运动与偏心率反算
-        （a(1−e) − R⊕，R⊕ = 6378.137 km）。分层边界取 600 km 与 800 km：
-        这两处对应大气阻力清除能力的转折，后续章节会用到。
-      </p>
+      ${fold(`
+        <p>
+          高度为近地点高度，由 GP 轨道根数的平均运动与偏心率反算
+          （a(1−e) − R⊕，R⊕ = 6378.137 km）。分层边界取 600 km 与 800 km：
+          这两处对应大气阻力清除能力的转折，后续章节会用到。
+          该层同时容纳了 ${fixed(f.recentShare)}% 于 2020 年以后发射的对象。
+        </p>`)}
     `;
     },
   },
@@ -182,7 +179,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
     id: 'working-share',
     nav: '多少还在工作',
     scene: 'status',
-    pinRatio: 1.2,
+    pinRatio: 1,
     render: (f) => {
       const rows = f.breakdown
         .filter((r) => r.count > 0)
@@ -197,50 +194,22 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
         .join('');
 
       return `
-      <h2>画面亮起来，是因为它们还在工作</h2>
-      <p>
-        按编目状态给每个对象分类着色后，一个反直觉的事实出现了：
-        正在工作的载荷只占在轨总数的 <strong>${fixed((f.workingPayloads / f.cataloguedInOrbit) * 100)}%</strong>。
+      <h2>多数已经停摆</h2>
+      <p class="lead">
+        还在工作的载荷只占在轨总数的
+        ${fixed((f.workingPayloads / f.cataloguedInOrbit) * 100)}%。
       </p>
       <div class="legend">${rows}</div>
-      <div class="finding is-warn">
+      ${fold(`
         <p>
-          超过一半的在轨物体已经不工作了。它们不会因为没有任务而离轨，
-          只会继续留在原来的轨道上。
-        </p>
-      </div>
-      <p class="cite">
-        <b>口径</b> 分类依据 SATCAT 的对象类型与运行状态码。
-        「部分运行或待机」与「状态未记录」单独列出而不计入失效：
-        这两种情况不能等同于已停止工作，混在一起会夸大结论。
-      </p>
+          分类依据 SATCAT 的对象类型与运行状态码。
+          「部分运行或待机」与「状态未记录」单独列出而不计入失效：
+          这两种情况不能等同于已停止工作，混在一起会夸大结论。
+          它们不会因为没有任务而离轨，只会继续留在原来的轨道上。
+        </p>`)}
+      ${nextCue('数量不是线性增长的')}
     `;
     },
-  },
-  {
-    id: 'summary',
-    nav: '小结',
-    scene: 'recap',
-    pinRatio: 1.0,
-    render: (f) => `
-      <h2>第一节到此为止</h2>
-      <p>
-        关于「现在有多少」，可以记住三个数字：在轨编目
-        <strong>${int(f.cataloguedInOrbit)}</strong> 个，
-        其中能定位到具体位置的 <strong>${int(f.located)}</strong> 个，
-        而真正还在工作的载荷 <strong>${int(f.workingPayloads)}</strong> 个。
-      </p>
-      <p>
-        这三者是同一片天空的三种口径。接下来的问题不是「还有多少」，
-        而是这些不再工作的东西从哪里来，以及它们会在那里留多久。
-      </p>
-      <div class="readouts">
-        <div class="readout">
-          <span class="readout-k">下一节</span>
-          <span class="readout-v">数量不是线性增长的</span>
-        </div>
-      </div>
-    `,
   },
 ];
 

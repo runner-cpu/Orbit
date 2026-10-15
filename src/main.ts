@@ -21,6 +21,8 @@ import { createCameraRig } from './core/camera';
 import { createScrollStory, type StoryStep } from './core/scrollStory';
 import { loadSceneData, loadDebrisData, loadHistoryData } from './core/data';
 import { cameraDistanceKm, int, isoDate, scaled } from './core/format';
+import { createInstrumentHost, type InstrumentId } from './core/instrument';
+import { createPicker } from './core/picking';
 
 import { buildFigures, type DebrisGroupFigures } from './content/figures';
 import { CHAPTER_ONE_STEPS, type StepCopy } from './content/chapter1';
@@ -30,6 +32,11 @@ import { CHAPTER_FOUR_STEPS } from './content/chapter4';
 import { CHAPTER_FIVE_STEPS } from './content/chapter5';
 import { renderMethods, methodSpecs } from './content/methods';
 import { createChapterScenes, DEBRIS_PALETTE } from './chapters/scenes';
+import { createAltitudeInstrument } from './chapters/instruments/altitude';
+import { createYearInstrument } from './chapters/instruments/year';
+import { createPerigeeInstrument } from './chapters/instruments/perigee';
+import { createPlaneInstrument } from './chapters/instruments/plane';
+import { createDecayInstrument } from './chapters/instruments/decay';
 
 /** 全部章节的步骤，按叙事顺序拼接。刻度条与滚动区间都从这里来。 */
 const ALL_STEPS: StepCopy[] = [
@@ -167,7 +174,7 @@ async function main(): Promise<void> {
     positions[i * 3 + 1] = catalog[o + offset.y];
     positions[i * 3 + 2] = catalog[o + offset.z];
     // 年份用于第二章的「按时间逐步出现」。没有年份的对象给一个极大的
-    // 负数，任何时间切片都会把它们包含进来——它们确实无法定年，
+    // 负数，任何时间切片都会把它们包含进来，它们确实无法定年，
     // 但也不该被静默丢弃。
     const y = catalog[o + offset.launchYear];
     launchYears[i] = y > 0 ? y : -1e6;
@@ -213,7 +220,7 @@ async function main(): Promise<void> {
   // 这样图层在整体上会精确复现那一层的实测衰减比例，而单个点又是离散的。
   //
   // τ 为 null 的层（800 公里以上）给一个大于时间轴跨度的常数，
-  // 表示在这 200 年里不会消失——这正是页面上要表达的那件事。
+  // 表示在这 200 年里不会消失，这正是页面上要表达的那件事。
   const MAX_HORIZON = 200;
   const bandTau = history.bandDecay
     .map((b) => ({
@@ -314,6 +321,40 @@ async function main(): Promise<void> {
   const story = createScrollStory(storySteps);
   const scenes = createChapterScenes(rig, layer, debrisLayer, globe, history);
 
+  // ---------- 仪器层 ----------
+  //
+  // 五台仪器全部提前建好并挂载，切换只是显隐：切场景时不重建 SVG，
+  // 也不会有一次布局抖动。仪器发出的意图统一交给 scenes.applyIntent，
+  // 由场景层决定怎么落到点云与镜头上。
+  const instrumentLayer = document.getElementById('instrument-layer');
+  if (!instrumentLayer) throw new Error('缺少 #instrument-layer 容器');
+
+  const instruments = createInstrumentHost(
+    instrumentLayer,
+    {
+      altitude: createAltitudeInstrument,
+      year: createYearInstrument,
+      perigee: createPerigeeInstrument,
+      plane: createPlaneInstrument,
+      decay: createDecayInstrument,
+    } satisfies Record<InstrumentId, () => ReturnType<typeof createAltitudeInstrument>>,
+    (intent) => {
+      scenes.applyIntent(intent);
+      // 用户操作后立刻把新状态推回仪器，避免下一次 update 前读数还是旧的
+      instruments.update(instrumentPayload());
+    }
+  );
+
+  function instrumentPayload() {
+    return {
+      figures,
+      scene: scenes.currentSceneId,
+      progress: story.state.progress,
+      yearMax: scenes.yearMax,
+      horizon: scenes.horizon,
+    };
+  }
+
   const ticks = mountStageTicks(
     ALL_STEPS.map((s) => ({ id: s.id, nav: s.nav })),
     (id) => story.goTo(id)
@@ -326,6 +367,11 @@ async function main(): Promise<void> {
   let lastTickState = '';
   story.onStep((state) => {
     scenes.apply(state, sceneById.get(state.id) ?? 'establish');
+
+    // 仪器跟随场景切换。切到新仪器时宿主会发一次 reset，
+    // 撤销上一步的用户输入，避免把 A 的筛选带到 B 上。
+    instruments.set(scenes.instrument);
+    instruments.update(instrumentPayload());
 
     // 刻度状态：只在与上次不同时写 DOM
     const key = `${state.index}`;
@@ -354,6 +400,106 @@ async function main(): Promise<void> {
   // 没有它观众会以为点变少是渲染出问题。
   const readYear = document.getElementById('readout-year');
   const yearField = document.getElementById('field-year');
+
+  // ---------- 对象读数卡 ----------
+  //
+  // 点场景里任意一个点，看它是谁。这是这一页唯一一个「读者自己提问」的入口：
+  // 在此之前 18,610 个点只能被整体地看，没有任何办法问「这一个是什么」。
+  const picker = createPicker();
+  const pickCard = document.getElementById('pick-card');
+  const pickKind = document.getElementById('pick-kind');
+  const pickName = document.getElementById('pick-name');
+  const pickRows = document.getElementById('pick-rows');
+  const pickClose = document.getElementById('pick-close');
+
+  /** 类别码 → 中文名，与 pointCloud.ts 的 CATEGORY 一一对应。 */
+  const KIND_LABEL = ['工作中的载荷', '已停止工作的载荷', '火箭残骸', '碎片', '未分类'];
+
+  /** 轨道类型码 → 名称，取自 catalog-meta.json 的 orbitClassLabels。 */
+  function orbitClassName(code: number): string {
+    const labels = catalogMeta.orbitClassLabels;
+    const i = Math.round(code);
+    return labels[i] ?? '-';
+  }
+
+  function hidePick() {
+    pickCard?.setAttribute('hidden', '');
+  }
+
+  function showPick(x: number, y: number, kind: string, name: string, rows: [string, string][]) {
+    if (!pickCard || !pickKind || !pickName || !pickRows) return;
+    pickKind.textContent = kind;
+    pickName.textContent = name;
+    pickRows.replaceChildren();
+    for (const [k, v] of rows) {
+      const dt = document.createElement('dt');
+      dt.textContent = k;
+      const dd = document.createElement('dd');
+      dd.className = 'mono';
+      dd.textContent = v;
+      pickRows.append(dt, dd);
+    }
+    // 卡片贴着点击位置，但不出界
+    const w = 220;
+    const h = 150;
+    pickCard.style.left = `${Math.min(window.innerWidth - w - 16, Math.max(16, x + 14))}px`;
+    pickCard.style.top = `${Math.min(window.innerHeight - h - 16, Math.max(16, y - 12))}px`;
+    pickCard.removeAttribute('hidden');
+  }
+
+  pickClose?.addEventListener('click', hidePick);
+
+  canvas.addEventListener('click', (e) => {
+    // 拖动视角时不弹卡：相机把按下到抬起的位移记在 lastDragDistance 里，
+    // 位移小于 6 像素才算点击。没有这个判断的话，每次转完视角都会弹出一张卡。
+    if (rig.lastDragDistance > 6) return;
+    const ndc = {
+      x: (e.clientX / window.innerWidth) * 2 - 1,
+      y: -((e.clientY / window.innerHeight) * 2 - 1),
+    };
+
+    // 命中半径按当前视距换算：拉得越远，一个点覆盖的实际距离越大，
+    // 否则远视角下根本点不中。
+    const maxKm = rig.distance * 26;
+
+    // 先试碎片层（它通常在上面），再试编目层
+    const hitDebris = debrisLayer.points.visible
+      ? picker.pick(debrisLayer.points, rig.camera, ndc, maxKm)
+      : null;
+    if (hitDebris) {
+      const i = hitDebris.index;
+      const o = i * debris.meta.stride;
+      const g = debris.meta.groups[Math.round(debris.points[o + debris.offset.groupId])];
+      showPick(hitDebris.screenX, hitDebris.screenY, g?.label ?? '碎片', `编号 ${i + 1}`, [
+        ['近地点', `${debris.points[o + debris.offset.perigeeKm].toFixed(1)} km`],
+        ['远地点', `${debris.points[o + debris.offset.apogeeKm].toFixed(1)} km`],
+        ['倾角', `${debris.points[o + debris.offset.inclDeg].toFixed(2)}°`],
+        ['所属事件', g?.event ?? '-'],
+      ]);
+      return;
+    }
+
+    if (!layer.points.visible) return;
+    const hit = picker.pick(layer.points, rig.camera, ndc, maxKm, (i) => {
+      // 只接受当前可见的点：被年份或高度筛掉的点不该能被点到，
+      // 否则用户会点中一个画面上根本不存在的对象。
+      const y = layer.yearMax;
+      const yy = launchYears[i];
+      return yy <= y;
+    });
+    if (!hit) {
+      hidePick();
+      return;
+    }
+    const o = hit.index * stride;
+    const cat = Math.round(catalog[o + offset.category]);
+    const yr = catalog[o + offset.launchYear];
+    showPick(hit.screenX, hit.screenY, KIND_LABEL[cat] ?? '未分类', `编号 ${hit.index + 1}`, [
+      ['近地点', `${catalog[o + offset.perigeeKm].toFixed(1)} km`],
+      ['轨道类型', orbitClassName(catalog[o + offset.orbitClass])],
+      ['发射年', yr > 0 ? String(yr) : '未记录'],
+    ]);
+  });
 
   // ---------- 渲染循环 ----------
   const clock = new THREE.Clock();
@@ -387,7 +533,7 @@ async function main(): Promise<void> {
       if (readYear && yearField) {
         const y = scenes.yearMax;
         if (y === null) {
-          // 不筛选时这一格没有信息量，收起来而不是显示「全部」——
+          // 不筛选时这一格没有信息量，收起来而不是显示「全部」，
           // 仪器面板上不出现空转的字段。
           yearField.setAttribute('hidden', '');
         } else {
@@ -437,6 +583,12 @@ async function main(): Promise<void> {
         debrisVisible: debrisLayer.points.visible,
         horizon: debrisLayer.horizon,
         categories: catalogMeta.categories,
+        // 仪器状态。筛选在顶点着色器里完成，不改变 draw call 数，
+        // 因此只有把 uniform 读出来才能验证「点了某一层」真的生效。
+        instrument: instruments.current,
+        instrumentEngaged: instruments.engaged,
+        catalogMetricRange: layer.metricRange,
+        debrisMetricRange: debrisLayer.metricRange,
       }),
       goTo: (id: string) => story.goTo(id),
       figures,

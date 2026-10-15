@@ -46,7 +46,7 @@ export interface PointLayerOptions {
   /**
    * 类别配色表。默认用台面配色，但第二到四章要用同一套着色机制
    * 表达不同的分类（碎片按高度层、按所属碎片群），因此开放覆盖。
-   * 传入 1–5 个色值即可，缺的位置沿用默认值。
+   * 传入 1-5 个色值即可，缺的位置沿用默认值。
    */
   palette?: number[];
   /**
@@ -71,7 +71,7 @@ export interface PointLayerOptions {
   /** 亮度上限夹取，防止高密度区叠加后过曝 */
   maxSizePx?: number;
   /**
-   * 逐点归一化寿命（0–1）。第五章用它把「按高度层的清除速度」落到具体点上：
+   * 逐点归一化寿命（0-1）。第五章用它把「按高度层的清除速度」落到具体点上：
    * 拖动时间滑块时，低层的点先消失，高层的几乎不动。
    *
    * 语义：这个数就是「该点在多少年后消失」除以时间轴的跨度（200 年）。
@@ -349,7 +349,7 @@ export class PointLayer {
     this.material.uniforms.uHorizon.value = Math.max(0, Math.min(1, v));
   }
 
-  /** 覆盖配色表。传 1–5 个色值，缺的位置保持原样。 */
+  /** 覆盖配色表。传 1-5 个色值，缺的位置保持原样。 */
   setPalette(hexes: number[], startIndex = 0): void {
     const arr = this.material.uniforms.uPalette.value as THREE.Color[];
     for (let i = 0; i < hexes.length; i += 1) {
@@ -363,7 +363,19 @@ export class PointLayer {
     return this.material.uniforms.uYearMax.value as number;
   }
 
-  /** 当前的时间推进量（0–1），供仪表与调试使用。 */
+  /**
+   * 当前的辅助量筛选区间，供仪表与调试使用。
+   *
+   * 为什么需要它：筛选在顶点着色器里完成，被筛掉的点不改变 draw call 数，
+   * 因此「筛选到底生效没有」无法从渲染统计里读出来。把 uniform 暴露出来，
+   * 自动化校验才能确认「点某一层」真的改了这个区间。
+   */
+  get metricRange(): { lo: number; hi: number } {
+    const v = this.material.uniforms.uMetricRange.value as THREE.Vector2;
+    return { lo: v.x, hi: v.y };
+  }
+
+  /** 当前的时间推进量（0-1），供仪表与调试使用。 */
   get horizon(): number {
     return this.material.uniforms.uHorizon.value as number;
   }

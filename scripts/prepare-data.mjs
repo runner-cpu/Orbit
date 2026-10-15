@@ -195,8 +195,8 @@ async function main() {
     const p = c.altitude.perigee;
     console.log(
       `  ${c.label.padEnd(14)} ${String(c.count).padStart(5)} 个 | ` +
-        `近地点 ${p.min}–${p.max} km (中位 ${p.median}) | ` +
-        `倾角 ${c.inclination.min}–${c.inclination.max}° | ` +
+        `近地点 ${p.min}-${p.max} km (中位 ${p.median}) | ` +
+        `倾角 ${c.inclination.min}-${c.inclination.max}° | ` +
         `≥800km ${c.above800km} 个`
     );
   }
