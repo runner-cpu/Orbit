@@ -174,6 +174,10 @@ export function createAltitudeInstrument(): Instrument {
     setVisible(v) {
       root.hidden = !v;
     },
+    resetUserState() {
+      activeLo = null;
+      syncActive();
+    },
     get engaged() {
       return dragging;
     },

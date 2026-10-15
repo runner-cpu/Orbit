@@ -25,8 +25,15 @@
 
 import type { Figures } from '../content/figures';
 
-/** 五台仪器的标识。与 scenes.ts 的 SceneState.instrument 一一对应。 */
-export type InstrumentId = 'altitude' | 'year' | 'perigee' | 'plane' | 'decay';
+/** 七台仪器的标识。与 scenes.ts 的 SceneState.instrument 一一对应。 */
+export type InstrumentId =
+  | 'altitude'
+  | 'category'
+  | 'year'
+  | 'perigee'
+  | 'family'
+  | 'plane'
+  | 'decay';
 
 /**
  * 仪器抛给场景层的用户意图。
@@ -37,10 +44,14 @@ export type InstrumentId = 'altitude' | 'year' | 'perigee' | 'plane' | 'decay';
 export type InstrumentIntent =
   /** 第一章：只看某个高度层。hi 为 null 表示该层没有上界。 */
   | { kind: 'altitude-band'; lo: number; hi: number | null }
+  /** 第一章：只看某一类对象。category 为 null 表示全部。 */
+  | { kind: 'category'; category: number | null }
   /** 第二章：时间切到某一年。 */
   | { kind: 'year'; year: number }
   /** 第三章：只看某个近地点区间。 */
   | { kind: 'perigee-bin'; lo: number; hi: number }
+  /** 第三到五章：只看某个碎片群。group 为 null 表示全部。 */
+  | { kind: 'debris-group'; group: number | null }
   /** 第四章：把场景绕轴转到某个方位角。 */
   | { kind: 'plane-angle'; azimuth: number }
   /** 第五章：时间推进到第几年。 */
@@ -59,6 +70,12 @@ export interface InstrumentPayload {
   yearMax: number | null;
   /** 当前生效的时间推进量 0-1，第五章的仪器回读它 */
   horizon: number;
+  /** 当前场景预设的碎片群筛选（null = 全部），第三、四章的仪器回读它 */
+  debrisGroups: { lo: number; hi: number } | null;
+  /** 用户当前锁定的对象类别（null = 跟随场景），第一章的仪器回读它 */
+  category: number | null;
+  /** 用户当前锁定的碎片群（null = 跟随场景），第三、四章的仪器回读它 */
+  group: number | null;
 }
 
 /**
@@ -77,6 +94,15 @@ export interface Instrument {
   update(p: InstrumentPayload): void;
   /** 显示 / 隐藏（切场景时用，不销毁） */
   setVisible(v: boolean): void;
+  /**
+   * 丢掉用户输入，回到「跟随场景」的状态。
+   *
+   * 为什么需要它：一台仪器可能连续挂在几步上（第三到五章各有这种情况）。
+   * 同一台仪器跨场景时宿主不会重建它，于是上一步拖过的游标、点过的档位
+   * 会留在 DOM 里，而场景层已经把筛选撤销了：画面上是全部，读数上却是
+   * 「已锁定某一档」。切场景时由宿主调一次，两边就始终一致。
+   */
+  resetUserState(): void;
   /** 当前是否有指针停在仪器上或正在拖动 */
   readonly engaged: boolean;
 }
@@ -92,6 +118,14 @@ export interface InstrumentHost {
   set(id: InstrumentId | null): void;
   /** 把数据推给当前仪器 */
   update(p: InstrumentPayload): void;
+  /**
+   * 让当前仪器丢掉用户输入。切场景时由主循环调用。
+   *
+   * 与 set 分开的原因：一台仪器会连续挂在同一章的几步上（第三到五章都有），
+   * 这时 set 收到的 id 与当前相同、直接早退，但场景表里的筛选已经换了，
+   * 仪器上的游标与锁定状态必须跟着回到默认，否则读数与画面不一致。
+   */
+  resetUserState(): void;
   /** 用户是否正在操作仪器。为真时叙事层应暂停自动推进。 */
   readonly engaged: boolean;
   /** 当前仪器标识 */
@@ -132,6 +166,9 @@ export function createInstrumentHost(
     },
     update(p) {
       if (current) get(current).update(p);
+    },
+    resetUserState() {
+      if (current) get(current).resetUserState();
     },
     get engaged() {
       return current ? get(current).engaged : false;

@@ -5,7 +5,11 @@
  * 刻度，纵轴是数量。主峰落在 800-850，而不是撞击发生的 865 附近，
  * 这是本章唯一的论点，柱状图自己就能把它读出来。
  *
- * 交互：悬停某一档高亮该档；点一下只留那一档的碎片。
+ * 交互：悬停某一档看数量；点一下只留那一档的碎片；再点一次或按 Escape 取消。
+ *
+ * 直方图画的是风云一号C 这一个群，与球上当前显示的群是同一个：
+ * 两个群的高度分布叠在一张图里会变成一团，读者读不出任何一个峰。
+ * 图的标题写清是哪个群，因此不会与第四章的两个群混淆。
  */
 
 import type { Instrument, InstrumentIntent, InstrumentPayload } from '../../core/instrument';
@@ -16,21 +20,34 @@ import { int } from '../../core/format';
 const DRAW_LO = 250;
 const DRAW_HI = 1350;
 
+/** 每个场景默认聚焦哪个群。与场景表的 debrisGroups 一致。 */
+const SCENE_GROUP: Record<string, string> = {
+  'fy-shell': 'fengyun1c',
+  'impact-plane': 'cosmos2251',
+};
+
 export function createPerigeeInstrument(): Instrument {
   let root: HTMLElement;
+  let titleHost: HTMLElement;
   let barsHost: HTMLElement;
   let axisHost: HTMLElement;
   let readHost: HTMLElement;
   let emitFn: (i: InstrumentIntent) => void;
   let activeLo: number | null = null;
-  let painted = false;
+  /** 已画出的群，换群时重画一次 */
+  let paintedKey: string | null = null;
 
   function paint(p: InstrumentPayload) {
-    const g = p.figures.debris.find((d) => d.key === 'fengyun1c');
-    if (!g || painted) return;
+    const key = SCENE_GROUP[p.scene] ?? 'fengyun1c';
+    if (key === paintedKey) return;
+    const g = p.figures.debris.find((d) => d.key === key);
+    if (!g) return;
+
     const all = (g.perigeeBins ?? []).filter((b) => b.lo >= DRAW_LO && b.lo < DRAW_HI);
     if (!all.length) return;
-    painted = true;
+    paintedKey = key;
+
+    titleHost.textContent = `${g.label} · 近地点分布，每 50 公里一档`;
 
     // 每一档都占一个格子，含没有碎片的档。
     //
@@ -106,14 +123,16 @@ export function createPerigeeInstrument(): Instrument {
     }
     readHost.textContent = '悬停看某一档的数量，点选只看这一档';
   }
-
   function syncActive() {
     for (const node of barsHost.children) {
       const b = node as HTMLElement;
       if (b.dataset.empty === 'true') continue;
       b.dataset.active = String(activeLo !== null && Number(b.dataset.lo) === activeLo);
     }
-    if (activeLo !== null) readHost.textContent = `已锁定 ${activeLo} 公里档，再点一次取消`;
+    readHost.textContent =
+      activeLo === null
+        ? '悬停看某一档的数量，点选只看这一档'
+        : `已锁定 ${activeLo} 公里档，再点一次取消`;
   }
 
   return {
@@ -125,12 +144,13 @@ export function createPerigeeInstrument(): Instrument {
       root.setAttribute('role', 'group');
       root.setAttribute('aria-label', '近地点直方图：每 50 公里一档');
 
+      titleHost = el('p', 'instrument-title');
       barsHost = el('div', 'pg-bars');
       axisHost = el('div', 'pg-axis');
       readHost = el('p', 'instrument-read mono');
       readHost.setAttribute('aria-live', 'polite');
 
-      root.append(barsHost, axisHost, readHost);
+      root.append(titleHost, barsHost, axisHost, readHost);
       host.append(root);
 
       // 键盘只在有碎片、因而可点选的档位之间移动，跳过空档。
@@ -171,6 +191,10 @@ export function createPerigeeInstrument(): Instrument {
     },
     setVisible(v) {
       root.hidden = !v;
+    },
+    resetUserState() {
+      activeLo = null;
+      syncActive();
     },
     get engaged() {
       return false;

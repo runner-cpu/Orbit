@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "《轨道之上：一片正在增厚的碎片带》— 交互式科学传播长页（2026 全国大学生数字媒体科技作品及创意竞赛）",
+  "description": "《轨道之上：一片正在增厚的碎片带》：交互式科学传播长页（2026 全国大学生数字媒体科技作品及创意竞赛）",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

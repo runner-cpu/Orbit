@@ -62,6 +62,16 @@ export interface PointLayerOptions {
    * 这样「哪一类被显示」与「哪一类是什么颜色」是两个独立开关。
    */
   metrics?: Float32Array;
+  /**
+   * 逐点分组号，配合 setGroupRange 做筛选。
+   *
+   * 为什么不复用 metrics 那一条通道：第三章要同时表达两件事，
+   * 「这是风云一号C 这一个群」与「只看 750-850 这一层」。
+   * 共用一条通道时后写的会覆盖先写的，于是用户一点直方图选层，
+   * 群筛选就没了，画面从「只剩一个群」变成「三个群里挑一层」。
+   * 两条通道并行之后，群由场景表定，层由用户定，互不干扰。
+   */
+  groups?: Float32Array;
   /** 基础点大小（参考距离处的屏幕像素） */
   baseSizePx?: number;
   /** 参考距离（场景单位），点在此距离处等于 baseSizePx */
@@ -127,6 +137,10 @@ export class PointLayer {
       new THREE.BufferAttribute(opts.metrics ?? new Float32Array(count), 1)
     );
     this.geometry.setAttribute(
+      'aGroup',
+      new THREE.BufferAttribute(opts.groups ?? new Float32Array(count).fill(-1), 1)
+    );
+    this.geometry.setAttribute(
       'aLifetime',
       new THREE.BufferAttribute(opts.lifetimes ?? new Float32Array(count).fill(1), 1)
     );
@@ -161,6 +175,8 @@ export class PointLayer {
         uYearMax: { value: Number.POSITIVE_INFINITY },
         // 辅助量筛选区间，默认全开
         uMetricRange: { value: new THREE.Vector2(-1e9, 1e9) },
+        // 分组筛选区间，默认全开（-1 的分组号不落在任何区间里时也不会被误筛）
+        uGroupRange: { value: new THREE.Vector2(-1e9, 1e9) },
         // 时间推进：aLifetime ≤ uHorizon 的点已经消失。
         // 0 = 全部显示，1 = 到时间轴末端。第五章的时间滑块改这个值。
         uHorizon: { value: 0 },
@@ -171,6 +187,7 @@ export class PointLayer {
         attribute float aEmphasis;
         attribute float aYear;
         attribute float aMetric;
+        attribute float aGroup;
         attribute float aLifetime;
 
         varying vec3 vColor;
@@ -185,6 +202,7 @@ export class PointLayer {
         uniform float uDim;
         uniform float uYearMax;
         uniform vec2 uMetricRange;
+        uniform vec2 uGroupRange;
         uniform float uHorizon;
         uniform vec3 uUniformColor;
         uniform vec3 uPalette[5];
@@ -217,6 +235,8 @@ export class PointLayer {
             aYear <= uYearMax &&
             aMetric >= uMetricRange.x &&
             aMetric <= uMetricRange.y &&
+            aGroup >= uGroupRange.x &&
+            aGroup <= uGroupRange.y &&
             aLifetime > uHorizon;
 
           if (!visible) {
@@ -341,6 +361,16 @@ export class PointLayer {
   }
 
   /**
+   * 只显示分组号落在 [lo, hi] 内的点。
+   * 第三章「只看风云一号C 这一个群」、第四章「只看两个撞击群」用它。
+   * 传 null 取消筛选。
+   */
+  setGroupRange(lo: number | null, hi: number | null): void {
+    const v = this.material.uniforms.uGroupRange.value as THREE.Vector2;
+    v.set(lo ?? -1e9, hi ?? 1e9);
+  }
+
+  /**
    * 时间推进：aLifetime ≤ years/span 的点视为已经消失。
    * 传 0 表示全部保留，传 1 表示推到时间轴末端。
    * 第五章的时间加速滑块用它，于是低层的点先消失、高层的几乎不动。
@@ -372,6 +402,12 @@ export class PointLayer {
    */
   get metricRange(): { lo: number; hi: number } {
     const v = this.material.uniforms.uMetricRange.value as THREE.Vector2;
+    return { lo: v.x, hi: v.y };
+  }
+
+  /** 当前的分组筛选区间，供仪表与调试使用。理由同 metricRange。 */
+  get groupRange(): { lo: number; hi: number } {
+    const v = this.material.uniforms.uGroupRange.value as THREE.Vector2;
     return { lo: v.x, hi: v.y };
   }
 

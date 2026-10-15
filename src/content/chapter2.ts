@@ -31,12 +31,19 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       <div class="chapter-mark"><b>第二节</b><span>从 1 颗到 3 万颗</span></div>
       <h2>数量不是线性增长的</h2>
       <p class="lead">
-        1960 年底在轨 ${int(yearValue(f, 1960))} 个，现在是
-        ${int(f.cataloguedInOrbit)} 个。中间有几处台阶。
+        1965 年底编目在轨 ${int(yearValue(f, 1965))} 个，其中画面里只有
+        ${int(locatedAt(f, 1965))} 个。现在是 ${int(f.cataloguedInOrbit)} 个。
       </p>
       <div class="hint">
         <span><kbd>拖动年份轴</kbd> 看哪一年多了什么</span>
       </div>
+      ${fold(`
+        <p>
+          轴上画了两条曲线。上面那条是 SATCAT 编目在轨总量，含已再入与已失去跟踪的对象；
+          下面那条是其中仍有公开轨道根数、因而能被逐一定位的部分，
+          也正是球上真正画出来的那一批。两者相差一个数量级，且差得越来越多，
+          因此本章引用的历史数字取自前者，画面取自后者。
+        </p>`)}
     `,
   },
   {
@@ -168,6 +175,21 @@ function yearValue(f: Figures, year: number): number {
   return f.historySeries.find((s) => s.year === year)?.inOrbit ?? 0;
 }
 
+/**
+ * 取某个年份为止、可定位集合的累积数量。
+ *
+ * 这是球上真正画出来的那一批：GP 根数集合只覆盖有公开根数、能被逐一定位的对象，
+ * 最早的发射年是 1964。正文里引用历史增长用编目口径（SATCAT），
+ * 而画面用可定位口径，两个数并排写出来读者才不会对不上。
+ */
+function locatedAt(f: Figures, year: number): number {
+  let n = 0;
+  for (const r of f.launchCumulative) {
+    if (r.year <= year) n = r.cumulative;
+  }
+  return n;
+}
+
 /** 取某个年份的净增，找不到时返回 0。 */
 function yearValue2(f: Figures, year: number): number {
   return f.historySeries.find((s) => s.year === year)?.delta ?? 0;
@@ -182,14 +204,15 @@ function maxJump(f: Figures): number {
 /**
  * 编目在轨的碎片总数。
  *
- * 这个数字只在 SATCAT 的构成统计里有，而构成统计是按「是否还在工作」切的，
- * 不直接给对象类型。因此从 altitudeDistribution 的按类型分箱里合计，
- * 那份数据按近地点分箱并逐箱给出了 PAY / R/B / DEB 三类计数。
+ * 取 population.json 的构成统计（breakdown），它按对象类型切分且合计
+ * 恰好等于在轨总数。不用 altitudeDistribution 的按类型分箱：那份数据按
+ * 近地点分箱，694 个没有近地点分箱的对象（逃逸轨道、根数缺失）不在其中，
+ * 于是碎片数会少 198 个，与同一步仪器上的数字对不上。
  */
 function debrisTypeCount(f: Figures): number {
-  return f.altitudeTypeTotals?.DEB ?? 0;
+  return f.breakdown.find((b) => b.key === 'debris')?.count ?? 0;
 }
 
 function rocketCount(f: Figures): number {
-  return f.altitudeTypeTotals?.['R/B'] ?? 0;
+  return f.breakdown.find((b) => b.key === 'rocket')?.count ?? 0;
 }

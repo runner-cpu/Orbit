@@ -412,10 +412,6 @@ main {
   padding: calc(var(--hud-h) + 4vh) var(--gutter) calc(var(--hud-h) + 4vh);
 }
 
-.step.card {
-  min-height: 108vh;
-}
-
 .rail {
   grid-column: 1;
   max-width: var(--rail-w);
@@ -1314,7 +1310,7 @@ em {
 .year-svg {
   display: block;
   width: 100%;
-  height: 132px;
+  height: 150px;
   cursor: ew-resize;
   touch-action: none;
 }
@@ -1331,6 +1327,40 @@ em {
   stroke: var(--accent);
   stroke-width: 1.4;
   vector-effect: non-scaling-stroke;
+}
+
+/* 可定位集合那条曲线：画在下面，用虚线把它与编目总量区分开。
+   两条线之间的距离就是两个口径的差距，这是这一步要读者看见的东西。 */
+.year-curve.is-located {
+  stroke: var(--ink-mid);
+  stroke-width: 1.1;
+  stroke-dasharray: 3 3;
+}
+
+.year-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
+.year-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.year-legend-item::before {
+  content: '';
+  width: 14px;
+  height: 0;
+  border-top: 1.4px solid var(--accent);
+}
+
+.year-legend-item.is-located::before {
+  border-top: 1.1px dashed var(--ink-mid);
 }
 
 .year-cursor-line {
@@ -1358,6 +1388,15 @@ em {
 
 .instrument-perigee {
   position: relative;
+}
+
+/* 直方图标题。同一台仪器在第三、四章分别画不同的群，
+   没有这一行读者会以为两张图是同一个群。 */
+.instrument-title {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: var(--ink-dim);
 }
 
 /* 列之间不留 gap：横轴刻度是按公里线性定位的百分比，任何固定像素的
@@ -1604,6 +1643,211 @@ em {
   font-size: 10px;
   color: var(--ink-faint);
   white-space: nowrap;
+}
+
+/* ---------- 第一章：对象构成尺 ---------- */
+
+.comp-rows {
+  display: grid;
+  gap: 6px;
+}
+
+/* 每一行都是「色块 + 名称 + 横条 + 数量」四列。数量列定宽，
+   否则数字位数变化会把横条长度也带着变，长短就不成比例了。
+   编目构成视图多一列「可定位 N」，因此用 auto 让第四列自己撑开。 */
+.comp-row {
+  display: grid;
+  grid-template-columns: 8px minmax(72px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+
+/* 口径阶梯视图没有色块，只有三层缩进。用零宽第一列对齐，
+   缩进由 depth 决定，于是「下面每一行都属于上面那一行」看得出来。 */
+.comp-rows[data-mode='caliber'] .comp-row {
+  grid-template-columns: 0 minmax(72px, auto) minmax(0, 1fr) auto;
+}
+
+.comp-row[data-depth='1'] {
+  padding-left: 14px;
+}
+.comp-row[data-depth='2'] {
+  padding-left: 28px;
+}
+
+button.comp-row {
+  cursor: pointer;
+}
+
+button.comp-row:hover .comp-label,
+button.comp-row[data-active='true'] .comp-label {
+  color: var(--ink);
+}
+
+button.comp-row[data-active='true'] {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.comp-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.comp-label {
+  font-size: 12px;
+  color: var(--ink-mid);
+  white-space: nowrap;
+}
+
+.comp-track {
+  position: relative;
+  height: 8px;
+  background: rgba(22, 51, 74, 0.5);
+}
+
+.comp-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  opacity: 0.65;
+}
+
+button.comp-row[data-active='true'] .comp-fill {
+  opacity: 1;
+}
+
+.comp-value {
+  font-size: 11.5px;
+  color: var(--ink);
+  text-align: right;
+  min-width: 58px;
+}
+
+/* 编目构成视图里并排给出的可定位数。它比主数小一号、单独占一行，
+   读者一眼能分出「编目多少」与「其中画得出来多少」。 */
+.comp-note {
+  grid-column: 2 / -1;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  margin-top: -2px;
+}
+
+/* ---------- 第三到五章：碎片群选择器 ---------- */
+
+.fam-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.fam-row {
+  display: grid;
+  grid-template-columns: 8px minmax(84px, auto) minmax(0, 1fr) 78px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.fam-row:hover .fam-label,
+.fam-row[data-active='true'] .fam-label {
+  color: var(--ink);
+}
+
+.fam-row[data-active='true'] {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.fam-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.fam-label {
+  font-size: 12px;
+  color: var(--ink-mid);
+  white-space: nowrap;
+}
+
+.fam-track {
+  position: relative;
+  height: 9px;
+  background: rgba(22, 51, 74, 0.5);
+}
+
+.fam-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  opacity: 0.6;
+}
+
+/* 第五章的两段条：实心是仍在轨，右端的斜纹是已清除。
+   三个群的清除进度差别（34.6% / 64.4% / 82.5%）靠这一段读出来。 */
+.fam-fill-gone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.22) 0 2px,
+    transparent 2px 5px
+  );
+}
+
+.fam-row[data-active='true'] .fam-fill {
+  opacity: 1;
+}
+
+.fam-value {
+  font-size: 11.5px;
+  color: var(--ink);
+  text-align: right;
+}
+
+.fam-axis-host {
+  margin-top: 2px;
+}
+
+.fam-axis {
+  position: relative;
+  height: 14px;
+}
+
+.fam-tick {
+  position: absolute;
+  top: 0;
+  height: 4px;
+  border-left: 1px solid var(--line);
+}
+
+.fam-tick-label {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.fam-tick:last-child .fam-tick-label {
+  transform: translateX(-100%);
 }
 
 /* ---------- 对象读数卡 ---------- */

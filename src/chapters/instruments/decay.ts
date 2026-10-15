@@ -169,6 +169,10 @@ export function createDecayInstrument(): Instrument {
     setVisible(v) {
       root.hidden = !v;
     },
+    resetUserState() {
+      userYears = null;
+      track.removeAttribute('aria-valuenow');
+    },
     get engaged() {
       return dragging;
     },

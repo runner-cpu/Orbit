@@ -150,6 +150,9 @@ export function createPlaneInstrument(): Instrument {
     setVisible(v) {
       root.hidden = !v;
     },
+    resetUserState() {
+      azimuth = 0.15;
+    },
     get engaged() {
       return dragging;
     },

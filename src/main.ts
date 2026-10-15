@@ -21,7 +21,7 @@ import { createCameraRig } from './core/camera';
 import { createScrollStory, type StoryStep } from './core/scrollStory';
 import { loadSceneData, loadDebrisData, loadHistoryData } from './core/data';
 import { cameraDistanceKm, int, isoDate, scaled } from './core/format';
-import { createInstrumentHost, type InstrumentId } from './core/instrument';
+import { createInstrumentHost, type Instrument, type InstrumentId } from './core/instrument';
 import { createPicker } from './core/picking';
 
 import { buildFigures, type DebrisGroupFigures } from './content/figures';
@@ -33,8 +33,10 @@ import { CHAPTER_FIVE_STEPS } from './content/chapter5';
 import { renderMethods, methodSpecs } from './content/methods';
 import { createChapterScenes, DEBRIS_PALETTE } from './chapters/scenes';
 import { createAltitudeInstrument } from './chapters/instruments/altitude';
+import { createCompositionInstrument } from './chapters/instruments/composition';
 import { createYearInstrument } from './chapters/instruments/year';
 import { createPerigeeInstrument } from './chapters/instruments/perigee';
+import { createFamilyInstrument } from './chapters/instruments/family';
 import { createPlaneInstrument } from './chapters/instruments/plane';
 import { createDecayInstrument } from './chapters/instruments/decay';
 
@@ -167,12 +169,17 @@ async function main(): Promise<void> {
   const sizes = new Float32Array(count);
   const positions = new Float32Array(count * 3);
   const launchYears = new Float32Array(count);
+  // 近地点高度。第一章的高度剖面尺按它筛选：
+  // 仪器只发「只看 400-600 这一层」，落到着色器上是一次区间比较，
+  // 因此这一列必须真的存在，否则筛选条件与 0 比较会把整层点全部藏起来。
+  const catalogMetrics = new Float32Array(count);
   for (let i = 0; i < count; i += 1) {
     const o = i * stride;
     categories[i] = catalog[o + offset.category];
     positions[i * 3] = catalog[o + offset.x];
     positions[i * 3 + 1] = catalog[o + offset.y];
     positions[i * 3 + 2] = catalog[o + offset.z];
+    catalogMetrics[i] = catalog[o + offset.perigeeKm];
     // 年份用于第二章的「按时间逐步出现」。没有年份的对象给一个极大的
     // 负数，任何时间切片都会把它们包含进来，它们确实无法定年，
     // 但也不该被静默丢弃。
@@ -189,6 +196,7 @@ async function main(): Promise<void> {
     categories,
     sizes,
     launchYears,
+    metrics: catalogMetrics,
     // 点保持小而离散：16,000 个点若各自画大，叠加后会糊成一团。
     // 目标观感是「能数得清的光点」，而不是一片发光的云。
     baseSizePx: 1.35,
@@ -267,6 +275,10 @@ async function main(): Promise<void> {
     categories: dCategories,
     sizes: dSizes,
     metrics: dMetrics,
+    // 群号单走一条筛选通道。它与近地点那条互不覆盖：
+    // 群由场景表定（第三章只留风云一号C，第四章留两个撞击群），
+    // 层由用户在直方图上点，两者要能同时成立。
+    groups: dCategories,
     lifetimes: dLifetimes,
     // 三个碎片群各自的颜色。第三到五章要看的是碎片内部的差异，
     // 统一用橙色不够用。
@@ -333,11 +345,13 @@ async function main(): Promise<void> {
     instrumentLayer,
     {
       altitude: createAltitudeInstrument,
+      category: createCompositionInstrument,
       year: createYearInstrument,
       perigee: createPerigeeInstrument,
+      family: createFamilyInstrument,
       plane: createPlaneInstrument,
       decay: createDecayInstrument,
-    } satisfies Record<InstrumentId, () => ReturnType<typeof createAltitudeInstrument>>,
+    } satisfies Record<InstrumentId, () => Instrument>,
     (intent) => {
       scenes.applyIntent(intent);
       // 用户操作后立刻把新状态推回仪器，避免下一次 update 前读数还是旧的
@@ -352,6 +366,9 @@ async function main(): Promise<void> {
       progress: story.state.progress,
       yearMax: scenes.yearMax,
       horizon: scenes.horizon,
+      debrisGroups: scenes.debrisGroups,
+      category: scenes.category,
+      group: scenes.group,
     };
   }
 
@@ -365,11 +382,21 @@ async function main(): Promise<void> {
   const sceneById = new Map(ALL_STEPS.map((s) => [s.id, s.scene]));
 
   let lastTickState = '';
+  let lastScene = '';
   story.onStep((state) => {
-    scenes.apply(state, sceneById.get(state.id) ?? 'establish');
+    const scene = sceneById.get(state.id) ?? 'establish';
+    scenes.apply(state, scene);
 
-    // 仪器跟随场景切换。切到新仪器时宿主会发一次 reset，
-    // 撤销上一步的用户输入，避免把 A 的筛选带到 B 上。
+    // 仪器跟随场景切换。
+    //
+    // 两台仪器会连续挂在同一章的几步上（第三到五章各有这种情况）。
+    // 这时 instruments.set 收到的 id 与当前相同、直接早退，但场景层已经
+    // 把用户输入清掉了：仪器上还留着上一步拖过的游标或锁定的档位，
+    // 而画面上是全部。所以场景一换就让仪器也回到默认，两边始终一致。
+    if (scene !== lastScene) {
+      lastScene = scene;
+      instruments.resetUserState();
+    }
     instruments.set(scenes.instrument);
     instruments.update(instrumentPayload());
 
@@ -589,6 +616,9 @@ async function main(): Promise<void> {
         instrumentEngaged: instruments.engaged,
         catalogMetricRange: layer.metricRange,
         debrisMetricRange: debrisLayer.metricRange,
+        debrisGroupRange: debrisLayer.groupRange,
+        categoryEmphasis: scenes.category,
+        debrisGroupPicked: scenes.group,
       }),
       goTo: (id: string) => story.goTo(id),
       figures,

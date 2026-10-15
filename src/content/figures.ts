@@ -46,6 +46,15 @@ export interface Figures {
   cataloguedAllTime: number;
   /** 可获取公开轨道根数、因而能被逐一定位的对象数 */
   located: number;
+  /**
+   * 可定位集合按对象类别的构成。
+   *
+   * 为什么要单独给一份：编目口径的构成（breakdown）含已再入与无根数对象，
+   * 与球上画出来的这一批不是同一批数据。仪器要能点选某一类并让球上亮起来，
+   * 就必须用球上真实存在的那些点来分组，否则会出现「点 12,556 个碎片、
+   * 球上只亮 2 个点」这种口径错位。
+   */
+  locatedByCategory: { key: number; label: string; count: number }[];
   /** 编目中仍在工作、且可定位的载荷 */
   locatedWorking: number;
   /** 编目中仍在工作的载荷总数 */
@@ -107,7 +116,7 @@ const R_EARTH = 6378.137;
 /** 从 catalog.bin 现场统计，保证页面数字与数据文件一致。 */
 function analyzeCatalog(data: LoadedData): Pick<
   Figures,
-  'located' | 'locatedWorking' | 'leo' | 'bands' | 'launchCumulative' | 'recentShare'
+  'located' | 'locatedWorking' | 'leo' | 'bands' | 'launchCumulative' | 'recentShare' | 'locatedByCategory'
 > {
   const { catalog, catalogMeta, offset, gap } = data;
   const stride = catalogMeta.stride;
@@ -116,6 +125,7 @@ function analyzeCatalog(data: LoadedData): Pick<
   let leo = 0;
   let recent = 0;
   const yearCount = new Map<number, number>();
+  const catCount = new Map<number, number>();
 
   // 分层边界按 LEO 内部的物理分界选取，而不是等距分箱：
   // 400 至 600 km 是当前的载人航天与主力星座高度，600 km 以上大气阻力开始
@@ -145,7 +155,7 @@ function analyzeCatalog(data: LoadedData): Pick<
       yearCount.set(year, (yearCount.get(year) ?? 0) + 1);
       if (year >= 2020) recent += 1;
     }
-    void category;
+    catCount.set(category, (catCount.get(category) ?? 0) + 1);
   }
 
   const years = [...yearCount.keys()].sort((a, b) => a - b);
@@ -168,8 +178,25 @@ function analyzeCatalog(data: LoadedData): Pick<
     })),
     launchCumulative,
     recentShare: (recent / n) * 100,
+    locatedByCategory: CATEGORY_KEYS.map((c) => ({
+      key: c.key,
+      label: c.label,
+      count: catCount.get(c.key) ?? 0,
+    })),
   };
 }
+
+/**
+ * 类别的显示顺序与名称。顺序按「在轨物体的自然读法」排：
+ * 还在工作的载荷先出现，未分类最后。着色用的编号与它一致。
+ */
+const CATEGORY_KEYS: { key: number; label: string }[] = [
+  { key: 0, label: '工作中的载荷' },
+  { key: 1, label: '已停止工作的载荷' },
+  { key: 2, label: '火箭残骸' },
+  { key: 3, label: '碎片' },
+  { key: 4, label: '未分类' },
+];
 
 /**
  * 从碎片点云现场统计每个群的近地点分布与倾角范围。
@@ -264,6 +291,7 @@ export function buildFigures(
     cataloguedAllTime: p.totalCatalogued,
     located: stats.located,
     locatedWorking: stats.locatedWorking,
+    locatedByCategory: stats.locatedByCategory,
     workingPayloads: p.workingPayloads,
     notWorkingShare: p.nonWorkingShare,
     notLocatable: data.gap.unrenderable,

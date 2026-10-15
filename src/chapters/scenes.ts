@@ -69,8 +69,14 @@ export interface SceneState {
   debrisVisible?: boolean;
   /** 碎片点云整体透明度 */
   debrisOpacity?: number;
-  /** 碎片按哪个通道筛选：groupId 或 nearPerigee */
-  debrisFilter?: { lo: number; hi: number } | null;
+  /**
+   * 碎片按所属群筛选。lo/hi 是群号，不是高度。
+   *
+   * 为什么与近地点分成两个字段：第三章要同时表达「只看风云一号C」
+   * 与「只看 750-850 这一层」。合成一个字段时后写的会覆盖先写的，
+   * 用户在直方图上点一层，群筛选就丢了。
+   */
+  debrisGroups?: { lo: number; hi: number } | null;
   /** 碎片生存阈值：0 = 全部显示，1 = 全部隐藏。第五章用 */
   horizon?: number;
 
@@ -98,6 +104,9 @@ const TABLE: Record<string, SceneState> = {
     catalogVisible: true,
     yearMax: null,
     debrisVisible: false,
+    // 开场就给一台能点选的仪器：正文里那个「一万六千」是哪个口径，
+    // 读者可以自己点出来，不必等到第一节。
+    instrument: 'category',
   },
 
   wide: {
@@ -111,6 +120,7 @@ const TABLE: Record<string, SceneState> = {
     catalogVisible: true,
     yearMax: null,
     debrisVisible: false,
+    instrument: 'category',
   },
 
   locatable: {
@@ -124,6 +134,7 @@ const TABLE: Record<string, SceneState> = {
     catalogVisible: true,
     yearMax: null,
     debrisVisible: false,
+    instrument: 'category',
   },
 
   band: {
@@ -156,6 +167,7 @@ const TABLE: Record<string, SceneState> = {
     catalogVisible: true,
     yearMax: null,
     debrisVisible: false,
+    instrument: 'category',
   },
 
   recap: {
@@ -185,8 +197,11 @@ const TABLE: Record<string, SceneState> = {
     spin: 0.02,
     opacity: 0.95,
     catalogVisible: true,
-    yearMax: 1960,
+    // 1965 而不是 1960：球上这批对象最早的发射年是 1964，
+    // 切到 1960 会得到一个空画面，读者会以为是渲染坏了。
+    yearMax: 1965,
     debrisVisible: false,
+    instrument: 'year',
   },
 
   'growth-payload': {
@@ -206,15 +221,18 @@ const TABLE: Record<string, SceneState> = {
   'growth-fragmentation': {
     // 侧倾到近赤道视角：碎片带的厚度与密度在这一角度下最清楚
     pose: { azimuth: 1.5, elevation: 0.12, distance: 3.6, screenShift: 0.28 },
-    categoryMix: 0,
+    // 这一步讲的是构成而不是时间：把年份闸门撤掉，让读者看见全部对象，
+    // 再自己点出「碎片」那一类。留在 2000 年只会剩 88 个点，与正文对不上。
+    categoryMix: 1,
     dim: 0,
     emphasize: null,
     referenceLayers: false,
     spin: 0.012,
     opacity: 1,
     catalogVisible: true,
-    yearMax: 2000,
+    yearMax: null,
     debrisVisible: false,
+    instrument: 'category',
   },
 
   'growth-constellation': {
@@ -228,6 +246,7 @@ const TABLE: Record<string, SceneState> = {
     catalogVisible: true,
     yearMax: 2020,
     debrisVisible: false,
+    instrument: 'year',
   },
 
   'growth-now': {
@@ -259,8 +278,9 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
+    debrisGroups: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
     horizon: 0,
+    instrument: 'family',
   },
 
   'fy-shell': {
@@ -276,7 +296,7 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
+    debrisGroups: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
     horizon: 0,
     instrument: 'perigee',
   },
@@ -294,8 +314,10 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
+    debrisGroups: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
     horizon: 0,
+    // 这一步的论点就在 750-850 这一层，直方图挂在旁边让读者自己点出来
+    instrument: 'perigee',
   },
 
   'fy-edge': {
@@ -311,7 +333,7 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
+    debrisGroups: { lo: GROUP.FENGYUN1C - 0.5, hi: GROUP.FENGYUN1C + 0.5 },
     horizon: 0,
   },
 
@@ -331,8 +353,11 @@ const TABLE: Record<string, SceneState> = {
     debrisVisible: true,
     debrisOpacity: 1,
     // 两个群一起显示：73.5-86.5° 这一段把两个群都包住，但排掉风云一号C
-    debrisFilter: { lo: GROUP.COSMOS2251 - 0.5, hi: GROUP.IRIDIUM33 + 0.5 },
+    debrisGroups: { lo: GROUP.COSMOS2251 - 0.5, hi: GROUP.IRIDIUM33 + 0.5 },
     horizon: 0,
+    // 这一步的正文在比「两个群各有多少、数量差几倍」，
+    // 群选择器把两行并排放着，数量差直接读得出来。
+    instrument: 'family',
   },
 
   'impact-plane': {
@@ -348,7 +373,7 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: { lo: GROUP.COSMOS2251 - 0.5, hi: GROUP.IRIDIUM33 + 0.5 },
+    debrisGroups: { lo: GROUP.COSMOS2251 - 0.5, hi: GROUP.IRIDIUM33 + 0.5 },
     horizon: 0,
     instrument: 'plane',
   },
@@ -369,8 +394,9 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: null,
+    debrisGroups: null,
     horizon: 0,
+    instrument: 'family',
   },
 
   'decay-observe': {
@@ -386,7 +412,7 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: null,
+    debrisGroups: null,
     horizon: 0,
     instrument: 'decay',
   },
@@ -405,7 +431,7 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 1,
-    debrisFilter: null,
+    debrisGroups: null,
     horizon: 0,
     instrument: 'decay',
   },
@@ -422,7 +448,7 @@ const TABLE: Record<string, SceneState> = {
     yearMax: null,
     debrisVisible: true,
     debrisOpacity: 0.9,
-    debrisFilter: null,
+    debrisGroups: null,
     horizon: 0,
   },
 };
@@ -447,6 +473,12 @@ export interface ChapterScenes {
   readonly yearMax: number | null;
   /** 当前时间推进量（0-1），第五章的读数用它 */
   readonly horizon: number;
+  /** 当前场景预设的碎片群筛选，第三、四章的仪器回读它 */
+  readonly debrisGroups: { lo: number; hi: number } | null;
+  /** 用户锁定的对象类别（null = 跟随场景），第一章的仪器回读它 */
+  readonly category: number | null;
+  /** 用户锁定的碎片群（null = 跟随场景），第三、四章的仪器回读它 */
+  readonly group: number | null;
   /** 当前场景该挂哪台仪器。null = 不挂。主循环用它切仪器 */
   readonly instrument: InstrumentId | null;
   /**
@@ -471,6 +503,15 @@ export function createChapterScenes(
   let yearMax: number | null = null;
   /** 当前场景标识，applyIntent 需要按它判断用户输入该落到哪一层 */
   let sceneNow = 'establish';
+  /**
+   * 最近一次的叙事状态。
+   *
+   * 为什么留着它：用户按 Escape 撤销筛选时，要回到的「默认」不是一个常数，
+   * 而是当前场景在当前进度下的样子（第五章的外推量就随进度连续变化）。
+   * 记下它，撤销时重跑一次 apply 即可，不必在 applyIntent 里把场景表
+   * 重新解释一遍，那样两处逻辑迟早会分叉。
+   */
+  let lastState: StepState = { index: 0, id: '', progress: 0, direction: 0 };
 
   /**
    * 用户输入覆盖层。
@@ -485,10 +526,14 @@ export function createChapterScenes(
   const override = {
     /** 第一章：只看某一段高度。null = 不筛选 */
     band: null as { lo: number; hi: number | null } | null,
+    /** 第一章：只看某一类对象。null = 跟随场景 */
+    category: null as number | null,
     /** 第二章：用户拖到的年份。null = 跟随场景 */
     year: null as number | null,
-    /** 第三章：用户选中的近地点档。null = 不筛选 */
+    /** 第三章：用户选中的近地点档。null = 跟随场景 */
     bin: null as { lo: number; hi: number } | null,
+    /** 第三至五章：用户选中的碎片群。null = 跟随场景 */
+    group: null as number | null,
     /** 第四章：用户转动到的方位角。null = 跟随场景 */
     azimuth: null as number | null,
     /** 第五章：用户拖到的时间。null = 跟随场景 */
@@ -497,8 +542,10 @@ export function createChapterScenes(
 
   function clearOverride() {
     override.band = null;
+    override.category = null;
     override.year = null;
     override.bin = null;
+    override.group = null;
     override.azimuth = null;
     override.years = null;
   }
@@ -512,7 +559,11 @@ export function createChapterScenes(
   function applyIntent(intent: InstrumentIntent) {
     switch (intent.kind) {
       case 'reset':
+        // 撤销用户输入 = 回到当前场景在当前进度下的样子。
+        // 直接重跑一次 apply，而不是逐项把 uniform 还原：
+        // 还原逻辑一旦与 apply 分叉，就会出现「撤销之后画面与刚进来时不一样」。
         clearOverride();
+        apply(lastState, sceneNow);
         break;
 
       case 'altitude-band': {
@@ -520,6 +571,20 @@ export function createChapterScenes(
         // 编目层用近地点做区间筛选。upper 为 null 时给一个大数，
         // 让「2000 公里以上」这一段也能被选中。
         catalog.setMetricRange(intent.lo, intent.hi ?? 1e9);
+        break;
+      }
+
+      case 'category': {
+        override.category = intent.category;
+        // 类别筛选走强调机制而不是可见性：被排除的类压暗而不是消失，
+        // 「这一类有多少」与「其余还有多少」于是能同时留在画面上。
+        apply(lastState, sceneNow);
+        break;
+      }
+
+      case 'debris-group': {
+        override.group = intent.group;
+        apply(lastState, sceneNow);
         break;
       }
 
@@ -532,7 +597,8 @@ export function createChapterScenes(
 
       case 'perigee-bin': {
         override.bin = { lo: intent.lo, hi: intent.hi };
-        // 碎片层的 aMetric 存的是近地点，直接按它筛
+        // 碎片层的 aMetric 存的是近地点，直接按它筛。
+        // 群筛选走另一条通道，因此点这一档不会把「只看某个群」覆盖掉。
         debris.setMetricRange(intent.lo, intent.hi);
         break;
       }
@@ -561,6 +627,23 @@ export function createChapterScenes(
   // 每次 apply 时读取窗口宽度：滚动过程中窗口尺寸变化会立即生效。
   function shiftFactor(): number {
     return window.innerWidth > 1080 ? 1 : 0;
+  }
+
+  /**
+   * 用户锁定的类别集合。
+   *
+   * 单独成一个函数而不是内联 new Set(...)：apply 每帧都会跑，
+   * 内联会每帧造一个新 Set，让下面那个「变了才重写缓冲区」的判断永远为真，
+   * 于是每帧上传 15,934 条数据。
+   */
+  let emphasisForCacheKey = -999;
+  let emphasisForCache: Set<number> | null = null;
+  function emphasisFor(cat: number): Set<number> {
+    if (cat !== emphasisForCacheKey) {
+      emphasisForCacheKey = cat;
+      emphasisForCache = new Set([cat]);
+    }
+    return emphasisForCache as Set<number>;
   }
 
   /**
@@ -593,6 +676,7 @@ export function createChapterScenes(
   function apply(state: StepState, scene: string) {
     const next = stateFor(scene);
     currentSceneId = scene;
+    lastState = state;
 
     // 切场景时清空用户输入：仪器表达的是「这一步的某个量」，
     // 把上一步的筛选带到下一步没有意义，而且会让画面与文案对不上。
@@ -601,7 +685,6 @@ export function createChapterScenes(
       sceneNow = scene;
       clearOverride();
       catalog.setMetricRange(null, null);
-      catalog.setYearMax(next.yearMax ?? null);
     }
 
     // 每一步内部再细分：进度 0→1 之间让镜头有轻微推进，
@@ -624,11 +707,14 @@ export function createChapterScenes(
     yearMax = override.year ?? next.yearMax ?? null;
     catalog.setYearMax(yearMax);
 
-    // 强调集合变化时才重写缓冲区，避免每帧上传 15,934 条数据
-    if (next.emphasize !== currentEmphasis) {
-      currentEmphasis = next.emphasize;
-      if (next.emphasize) {
-        catalog.emphasizeCategories(next.emphasize, 0.34);
+    // 强调集合变化时才重写缓冲区，避免每帧上传 15,934 条数据。
+    // 用户选了某一类时以用户的为准：被排除的类压暗而不是消失，
+    // 「这一类有多少」与「其余还有多少」于是能同时留在画面上。
+    const emphasisKey = override.category === null ? next.emphasize : emphasisFor(override.category);
+    if (emphasisKey !== currentEmphasis) {
+      currentEmphasis = emphasisKey;
+      if (emphasisKey) {
+        catalog.emphasizeCategories(emphasisKey, 0.34);
       } else {
         catalog.clearEmphasis();
       }
@@ -638,8 +724,20 @@ export function createChapterScenes(
     debris.points.visible = next.debrisVisible ?? false;
     if (next.debrisVisible) {
       debris.setOpacity(next.debrisOpacity ?? 1);
-      // 用户选中了某一档近地点时以用户为准，否则用场景定义的区间
-      const f = override.bin ?? next.debrisFilter;
+      // 两条通道并行：群由场景表定，层由用户在直方图上点。
+      // 分成两条是因为它们回答的是不同的问题（哪一个事件、哪一层高度），
+      // 共用一条时用户在直方图上点一层就会把群筛选覆盖掉。
+      const g = next.debrisGroups;
+      if (override.group !== null) {
+        // 用户选了一个群：只看它，不再受场景表区间的约束
+        debris.setGroupRange(override.group - 0.5, override.group + 0.5);
+      } else if (g) {
+        debris.setGroupRange(g.lo, g.hi);
+      } else {
+        debris.setGroupRange(null, null);
+      }
+
+      const f = override.bin;
       if (f) debris.setMetricRange(f.lo, f.hi);
       else debris.setMetricRange(null, null);
     }
@@ -678,6 +776,15 @@ export function createChapterScenes(
     },
     get horizon() {
       return debris.horizon;
+    },
+    get debrisGroups() {
+      return stateFor(currentSceneId).debrisGroups ?? null;
+    },
+    get category() {
+      return override.category;
+    },
+    get group() {
+      return override.group;
     },
     get instrument() {
       return stateFor(currentSceneId).instrument ?? null;
