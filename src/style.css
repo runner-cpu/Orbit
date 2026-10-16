@@ -1176,19 +1176,86 @@ em {
   left: calc(var(--gutter) * 2 + var(--rail-w));
   right: var(--gutter);
   bottom: calc(var(--hud-h) + 18px);
-  max-width: 620px;
+  /* 400px 而不是 620：面板右对齐，收窄之后它只压住球体的右侧边缘，
+     而不是从球心开始横切。读者点选某一类时，被点亮的点与被压暗的点
+     大部分都落在面板之外，变化才读得出来。 */
+  max-width: 400px;
   margin-left: auto;
+  pointer-events: none;
+  transition: opacity 0.3s var(--ease);
+}
+
+/* 尾页与末段静音：整层淡出并停止接收指针。
+   为什么不是直接 display:none：读者往回滚时它要原样回来，
+   重新挂载会重走一次入场动画，看起来像闪了一下。 */
+.instrument-layer[data-muted='true'] {
+  opacity: 0;
   pointer-events: none;
 }
 
+/* 每台仪器一个槽位。宿主只管槽位的显隐与折叠，
+   仪器本身完全不感知自己被收起来了。 */
+.instrument-slot[hidden] {
+  display: none;
+}
+
+.instrument-slot {
+  pointer-events: auto;
+}
+
+/* 折叠：收起之后只留标题与一行读数，球体完全露出来。
+   给读者一个「我想看清整颗球」的出口，而不是让面板一直压着。 */
+.instrument-slot[data-folded='true'] .instrument > *:not(.instrument-fold):not(.instrument-title):not(.instrument-read) {
+  display: none;
+}
+
+.instrument-slot[data-folded='true'] .instrument {
+  padding: 12px 16px 10px;
+}
+
 .instrument {
+  position: relative;
   pointer-events: auto;
   background: var(--bg-panel);
   border: 1px solid var(--line);
   /* 靠背板把仪器从点云上抬起来：没有它，密集的点会穿过刻度线 */
   backdrop-filter: blur(9px);
   padding: 14px 16px 10px;
+}
+
+/* 入场动画只在第一次露面时播。
+   为什么把 backdrop-filter 在这一段时间里关掉：模糊层的合成要读回
+   整个视口的像素，而动画期间面板每帧都在移动、每帧都要重新读一次，
+   在点云这种满屏高对比内容上表现为一次明显的闪屏。动画结束后再开，
+   静止状态下的模糊仍然保留。 */
+.instrument-slot[data-entering='1'] .instrument {
+  backdrop-filter: none;
   animation: instrument-in 0.42s var(--ease) both;
+}
+
+.instrument-fold {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+
+.instrument-fold:hover,
+.instrument-fold:focus-visible {
+  color: var(--ink-mid);
+  border-color: var(--line-strong);
+}
+
+.instrument-fold:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .instrument:focus-visible {
@@ -1652,12 +1719,13 @@ em {
   gap: 6px;
 }
 
-/* 每一行都是「色块 + 名称 + 横条 + 数量」四列。数量列定宽，
-   否则数字位数变化会把横条长度也带着变，长短就不成比例了。
-   编目构成视图多一列「可定位 N」，因此用 auto 让第四列自己撑开。 */
+/* 每一行都是「色块 + 名称 + 横条 + 数量」四列，三种视图共用同一套列宽。
+   口径阶梯视图没有色块，但也必须占住第一列（渲染一个透明色块），
+   否则后面的元素会各自左移一列：名称落进 0 宽的列里溢出、横条被挤成
+   72 像素、数量占掉整条横条的位置，看起来就是文字叠在一起。 */
 .comp-row {
   display: grid;
-  grid-template-columns: 8px minmax(72px, auto) minmax(0, 1fr) auto;
+  grid-template-columns: 8px minmax(84px, auto) minmax(0, 1fr) minmax(52px, auto);
   align-items: center;
   gap: 10px;
   padding: 4px 0;
@@ -1667,12 +1735,6 @@ em {
   font: inherit;
   color: inherit;
   cursor: default;
-}
-
-/* 口径阶梯视图没有色块，只有三层缩进。用零宽第一列对齐，
-   缩进由 depth 决定，于是「下面每一行都属于上面那一行」看得出来。 */
-.comp-rows[data-mode='caliber'] .comp-row {
-  grid-template-columns: 0 minmax(72px, auto) minmax(0, 1fr) auto;
 }
 
 .comp-row[data-depth='1'] {
@@ -1702,6 +1764,11 @@ button.comp-row[data-active='true'] {
   border-radius: 50%;
 }
 
+/* 口径阶梯没有类别可编码，色块留空位但不着色 */
+.comp-swatch[data-empty='true'] {
+  background: transparent;
+}
+
 .comp-label {
   font-size: 12px;
   color: var(--ink-mid);
@@ -1712,6 +1779,16 @@ button.comp-row[data-active='true'] {
   position: relative;
   height: 8px;
   background: rgba(22, 51, 74, 0.5);
+}
+
+/* 空心条：编目记下的件数。刻度与实心条共用，因此长度可以直接比。
+   「编目里有一万两千个碎片、球上只画得出两个」这句话，
+   在这条图上就是一大截空心里的一小点实心，不需要再写一段解释。 */
+.comp-ghost {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border: 1px solid rgba(122, 212, 245, 0.5);
+  background: rgba(122, 212, 245, 0.07);
 }
 
 .comp-fill {
@@ -1729,7 +1806,16 @@ button.comp-row[data-active='true'] .comp-fill {
   font-size: 11.5px;
   color: var(--ink);
   text-align: right;
-  min-width: 58px;
+  /* 并排视图里这一格是 `2 / 12,556` 这种形式，比单个数字宽得多。
+     列宽按最长的那一行留，否则数字会换行、把行高撑成两行。 */
+  min-width: 96px;
+  white-space: nowrap;
+}
+
+/* 斜杠后面的编目数。小一号、更暗：它是分母，不是这一步的主角。 */
+.comp-value small {
+  font-size: 10px;
+  color: var(--ink-faint);
 }
 
 /* 编目构成视图里并排给出的可定位数。它比主数小一号、单独占一行，

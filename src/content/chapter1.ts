@@ -61,7 +61,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
       <p class="kicker">近地轨道 / 编目数据</p>
       <h1>轨道之上</h1>
       <p class="lead">
-        头顶 400 公里，一万六千个物体正以每秒 7.6 公里掠过。
+        头顶四百公里，一万六千个物体以每秒 7.6 公里掠过。北京到上海，两分半。
       </p>
       <p>画面里每个点都是真实物体，位置由公开轨道根数解算。</p>
       <div class="hint">
@@ -78,9 +78,9 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
     pinRatio: 1,
     render: (f) => `
       <div class="chapter-mark"><b>第一节</b><span>现在头顶上有多少东西</span></div>
-      <h2>先看两个口径</h2>
+      <h2>编过的，一半已经掉下来</h2>
       <p class="lead">
-        累计编入 ${int(f.cataloguedAllTime)} 个目标，仍在轨 ${int(f.cataloguedInOrbit)} 个。
+        人类一共往天上编过 ${int(f.cataloguedAllTime)} 个目标。今天还在的，${int(f.cataloguedInOrbit)} 个。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -110,9 +110,9 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
     scene: 'locatable',
     pinRatio: 1,
     render: (f) => `
-      <h2>画不出来的那一半</h2>
+      <h2>有一半，只剩名字</h2>
       <p class="lead">
-        能定位的 ${int(f.located)} 个，其余 ${int(f.notLocatable)} 个没有公开根数。
+        球上这 ${int(f.located)} 个是能算出位置的。另外 ${int(f.notLocatable)} 个，编目里只有一行记录。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -159,7 +159,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
       return `
       <h2>挤在同一层</h2>
       <p class="lead">
-        近地轨道占 ${fixed(f.leo.share)}%，其中绝大多数在 400 至 600 公里。
+        九成半在两千公里以下。绝大多数卡在 400 到 600 公里这一薄层里。
       </p>
       <div class="bands">${rows}</div>
       <div class="finding">
@@ -196,8 +196,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
       return `
       <h2>多数已经停摆</h2>
       <p class="lead">
-        还在工作的载荷只占在轨总数的
-        ${fixed((f.workingPayloads / f.cataloguedInOrbit) * 100)}%。
+        还在工作的载荷 ${int(f.workingPayloads)} 个，不到在轨总数的一半。
       </p>
       <div class="legend">${rows}</div>
       ${fold(`

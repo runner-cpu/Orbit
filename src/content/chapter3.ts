@@ -30,7 +30,7 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
       <div class="chapter-mark"><b>第三节</b><span>2007 年 1 月 11 日</span></div>
       <h2>一次试验，两千片碎片</h2>
       <p class="lead">
-        一枚动能拦截器在约 865 公里处击中了失效的气象卫星风云一号C。
+        一枚动能拦截器在 865 公里高处击中了已经失效的气象卫星风云一号C。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -77,7 +77,7 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
       return `
       <h2>碎片没有留在撞击高度</h2>
       <p class="lead">
-        近地点中位数 ${fixed(g.perigeeMedianKm)} 公里，比撞击点更低。
+        近地点中位数 ${fixed(g.perigeeMedianKm)} 公里，比撞击的 865 公里低了整整一百公里。
       </p>
       <div class="bands">${rows}</div>
       <div class="finding">
@@ -105,8 +105,8 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
       return `
       <h2>750 公里以上，大气失效</h2>
       <p class="lead">
-        该群 ${int(g.above800km)} 个碎片的近地点在 800 公里以上，占
-        ${fixed((g.above800km / g.count) * 100)}%。
+        其中 ${int(g.above800km)} 个的近地点在 800 公里以上，占
+        ${fixed((g.above800km / g.count) * 100)}%。它们可能比人的寿命还长。
       </p>
       <div class="readouts">
         <div class="readout">

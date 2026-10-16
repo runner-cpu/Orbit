@@ -43,8 +43,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
       <div class="chapter-mark"><b>第五节</b><span>它们不会自己消失</span></div>
       <h2>清掉了不到一半</h2>
       <p class="lead">
-        三个碎片群合计 ${int(f.debrisAlive + f.debrisCleared)} 个，
-        已清除 ${fixed(f.debrisClearedShare)}%，仍在轨 ${int(f.debrisAlive)} 个。
+        三个碎片群一共 ${int(f.debrisAlive + f.debrisCleared)} 个。十九年过去，清掉 ${fixed(f.debrisClearedShare)}%。
       </p>
       <div class="legend">${rows}</div>
       ${fold(`
@@ -85,7 +84,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
       return `
       <h2>清除速度不是均匀的</h2>
       <p class="lead">
-        按高度层看被清掉的比例，从下往上单调下降，到 800 公里以上几乎为零。
+        400 公里以下清掉了 ${fixed(bandShare(f, '400 km 以下'))}%。到 800 公里以上，这几个数是零。
       </p>
       <div class="bands">${rows}</div>
       <div class="finding is-warn">
@@ -129,7 +128,9 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
       return `
       <h2>把清除速度换算成时间</h2>
       <p class="lead">
-        每层的时间常数从十年量级到千年量级，相差超过两个数量级。
+        400 公里以下，${int(bandTau(f, '400 km 以下'))} 年清掉一半。750 到 800 公里，${int(
+          bandTau(f, '750-800 km')
+        )} 年。
       </p>
       <div class="readouts">${rows}</div>
       <div class="finding">
@@ -172,11 +173,11 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
       return `
       <h2>按同一速度往后推</h2>
       <p class="lead">
-        沿用上一步的时间常数，把风云一号C 仍在轨的碎片往后推。
+        两百年的尺度上，风云一号C 还会剩 ${int(last ? last.totalRemaining : 0)} 个。低处的会走干净，高处的不动。
       </p>
       <div class="readouts">${rows}</div>
       <div class="finding is-warn">
-        <p>200 年后剩下的仍大部分在 750 公里以上：时间只把问题压进更窄的一层。</p>
+        <p>时间只把问题压进更窄的一层：两百年后剩下的，八成以上在 750 公里以上。</p>
       </div>
       ${fold(`
         <p>
@@ -203,6 +204,16 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
     },
   },
 ];
+
+/** 某个高度层的清除比例，找不到时返回 0。 */
+function bandShare(f: Figures, label: string): number {
+  return f.bandFigures.find((b) => b.label === label)?.removedShare ?? 0;
+}
+
+/** 某个高度层的时间常数，找不到或无法估计时返回 0。 */
+function bandTau(f: Figures, label: string): number {
+  return f.bandFigures.find((b) => b.label === label)?.tauYears ?? 0;
+}
 
 /** 图例色，与 scenes.ts 的 DEBRIS_PALETTE 对应。 */
 function swatchFor(key: string): string {

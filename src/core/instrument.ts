@@ -126,6 +126,13 @@ export interface InstrumentHost {
    * 仪器上的游标与锁定状态必须跟着回到默认，否则读数与画面不一致。
    */
   resetUserState(): void;
+  /**
+   * 整层静音：尾页与末段不该再有仪器压在文字上。
+   *
+   * 与 set(null) 的区别是它不改变 current：读者往回滚时仪器应当原样回来，
+   * 而不是重新走一次挂载与入场。
+   */
+  setMuted(v: boolean): void;
   /** 用户是否正在操作仪器。为真时叙事层应暂停自动推进。 */
   readonly engaged: boolean;
   /** 当前仪器标识 */
@@ -138,14 +145,57 @@ export function createInstrumentHost(
   emit: (intent: InstrumentIntent) => void
 ): InstrumentHost {
   const instances = new Map<InstrumentId, Instrument>();
+  const slots = new Map<InstrumentId, HTMLElement>();
+  const folded = new Set<InstrumentId>();
+
+  /**
+   * 折叠开关。
+   *
+   * 仪器面板固定在画面右下角，球体的下半部必然有一部分落在它后面。
+   * 大部分场景里这没关系（要看的点云在中上部），但读者想看清整颗球时
+   * 需要一个出口，于是每台仪器右上角都有一个折叠按钮：收起之后只留
+   * 一行标题与一行读数，球体完全露出来。状态按仪器各记各的，切回来
+   * 还是上次收的样子。
+   */
+  function applyFold(id: InstrumentId) {
+    const slot = slots.get(id);
+    if (!slot) return;
+    slot.dataset.folded = String(folded.has(id));
+    const btn = slot.querySelector('.instrument-fold') as HTMLButtonElement | null;
+    if (btn) {
+      const inst = instances.get(id);
+      btn.textContent = folded.has(id) ? '展开' : '收起';
+      btn.setAttribute('aria-expanded', String(!folded.has(id)));
+      btn.setAttribute('aria-label', `${folded.has(id) ? '展开' : '收起'}${inst?.label ?? '仪器'}`);
+    }
+  }
 
   function get(id: InstrumentId): Instrument {
     let inst = instances.get(id);
     if (!inst) {
+      // 每台仪器有自己的槽位。宿主只管槽位的显隐与折叠，
+      // 仪器内部完全不感知自己被收起来了。
+      const slot = el('div', 'instrument-slot');
+      slot.dataset.inst = id;
+      slot.hidden = true;
+      root.append(slot);
+
       inst = factories[id]();
-      inst.mount(root, emit);
+      inst.mount(slot, emit);
       inst.setVisible(false);
       instances.set(id, inst);
+      slots.set(id, slot);
+
+      const btn = el('button', 'instrument-fold mono');
+      btn.type = 'button';
+      btn.addEventListener('click', () => {
+        if (folded.has(id)) folded.delete(id);
+        else folded.add(id);
+        applyFold(id);
+      });
+      const panel = slot.querySelector('.instrument');
+      if (panel) panel.prepend(btn);
+      applyFold(id);
     }
     return inst;
   }
@@ -155,10 +205,26 @@ export function createInstrumentHost(
   return {
     set(id) {
       if (id === current) return;
-      if (current) get(current).setVisible(false);
+      if (current) {
+        get(current).setVisible(false);
+        const prev = slots.get(current);
+        if (prev) prev.hidden = true;
+      }
       current = id;
       if (id) {
-        get(id).setVisible(true);
+        const inst = get(id);
+        inst.setVisible(true);
+        const slot = slots.get(id);
+        if (slot) {
+          slot.hidden = false;
+          // 入场动画只在第一次露面时播。反复滚动跨过章节边界时，
+          // 每切一次就重放一次淡入，屏幕会一直闪。
+          if (slot.dataset.seen !== '1') {
+            slot.dataset.seen = '1';
+            slot.dataset.entering = '1';
+            window.setTimeout(() => delete slot.dataset.entering, 460);
+          }
+        }
         // 切到新仪器时撤销上一步的用户输入：
         // 两台仪器表达的是不同的量，把 A 的筛选带到 B 上没有意义。
         emit({ kind: 'reset' });
@@ -169,6 +235,9 @@ export function createInstrumentHost(
     },
     resetUserState() {
       if (current) get(current).resetUserState();
+    },
+    setMuted(v) {
+      root.dataset.muted = String(v);
     },
     get engaged() {
       return current ? get(current).engaged : false;

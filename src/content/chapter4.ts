@@ -30,7 +30,7 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
       <div class="chapter-mark"><b>第四节</b><span>2009 年 2 月 10 日</span></div>
       <h2>一次意外相撞</h2>
       <p class="lead">
-        失效的宇宙 2251 与仍在工作的铱星 33 在西伯利亚上空 790 公里处相撞。
+        已经失效的宇宙 2251 与仍在工作的铱星 33，在 790 公里高处撞上了。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -69,7 +69,7 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
       return `
       <h2>它们本在不同的轨道面上</h2>
       <p class="lead">
-        两个群的倾角区间几乎不重叠，中位数相差约 ${diff} 度。
+        两个群一个偏 74 度，一个偏 86 度。差的这 ${diff} 度，就是那次相撞的全部原因。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -109,13 +109,15 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
       return `
       <h2>相对速度决定碎片数量</h2>
       <p class="lead">
-        两个群合计 ${int(total)} 个，这一次事件就让可定位对象增加了
-        ${fixed((total / f.located) * 100, 1)}%。
+        两个群合计 ${int(total)} 个。轨道面交叉得这么陡，撞击时是每秒十几公里的相对速度。
       </p>
       <div class="readouts">
         <div class="readout">
           <span class="readout-k">两个群合计（可定位）</span>
           <span class="readout-v is-warn">${int(total)}<small>个</small></span>
+          <div class="readout-note">
+            占球上全部可定位对象的 ${fixed((total / f.located) * 100, 1)}%
+          </div>
         </div>
       </div>
       <div class="finding is-warn">

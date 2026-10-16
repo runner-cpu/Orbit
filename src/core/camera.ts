@@ -48,6 +48,14 @@ export interface CameraRig {
   commitUserPose(): void;
   /** 重置手动偏移 */
   releaseUserControl(): void;
+  /**
+   * 告诉相机：视口底部有这么多像素被面板占掉了，球体不要压在上面。
+   *
+   * 为什么由外部告知而不是相机自己测：占用高度只有 DOM 知道，
+   * 而相机是纯数学层。面板收起、换仪器、窗口缩放都会改变这个数，
+   * 调用方在这些时刻各报一次即可，相机每帧只做一次换算。
+   */
+  setBottomInset(px: number): void;
 }
 
 export function createCameraRig(
@@ -60,9 +68,36 @@ export function createCameraRig(
   // 这样章节切换是平滑的，不会因为滚动速度突变而跳动。
   const target: Required<CameraPose> = { azimuth: 0.6, elevation: 0.32, distance: 4.2, screenShift: 0 };
   const current: Required<CameraPose> = { azimuth: 0.6, elevation: 0.32, distance: 4.2, screenShift: 0 };
+  /** 由底部净空推出的抬升量，单独缓动，保证收起面板时球是滑回去的 */
+  let lift = 0;
 
   let spin = 0;
   let spinAccum = 0;
+
+  /**
+   * 视口底部被面板占掉的高度（像素）。
+   *
+   * 球体的纵向构图由它决定：净空越大，球心越往上抬。这样不论当前
+   * 挂的是哪一台仪器、面板有多高、读者有没有把它收起来，球体都尽量
+   * 避开面板，而不是被压掉一截。面板收起后净空变小，球自己落回来。
+   */
+  let bottomInsetPx = 0;
+
+  /**
+   * 由底部净空换算球体的抬升量（单位：视口半高）。
+   *
+   * 不做成「把球完整抬到面板之上」：视距最近的那几个场景里球本身就比
+   * 视口高，硬抬会把球顶出画面。这里用一条有上限的曲线，抬到一定程度
+   * 就停，宁可让面板压住球的下缘一小块，也不破坏构图。
+   */
+  function liftFromInset(): number {
+    const H = window.innerHeight;
+    if (H <= 0) return 0;
+    // 扣掉底部仪表条与安全间距：面板低于这个高度时不需要抬。
+    const free = bottomInsetPx - 140;
+    if (free <= 0) return 0;
+    return Math.min(0.16, (free / H) * 0.34);
+  }
 
   // 用户手动操作的增量，叠加在滚动驱动的机位之上
   const userOffset = { azimuth: 0, elevation: 0, zoom: 1 };
@@ -140,6 +175,7 @@ export function createCameraRig(
   const tmp = new THREE.Vector3();
   const fwd = new THREE.Vector3();
   const right = new THREE.Vector3();
+  const upScreen = new THREE.Vector3();
   const focus = new THREE.Vector3();
 
   function update(dt: number) {
@@ -178,6 +214,7 @@ export function createCameraRig(
     current.elevation += (target.elevation - current.elevation) * follow;
     current.distance += (target.distance - current.distance) * follow;
     current.screenShift += (target.screenShift - current.screenShift) * follow;
+    lift += (liftFromInset() - lift) * follow;
 
     const az = current.azimuth + userOffset.azimuth + spinAccum;
     const el = Math.max(-1.5, Math.min(1.5, current.elevation + userOffset.elevation));
@@ -195,14 +232,22 @@ export function createCameraRig(
     tmp.set(Math.cos(az) * cosEl, Math.sin(el), Math.sin(az) * cosEl);
     camera.position.copy(tmp.multiplyScalar(dist));
 
-    // 视线目标从原点沿相机右方反向平移：目标是屏幕上的一点，
+    // 视线目标从原点沿相机右方与上方反向平移：目标是屏幕上的一点，
     // 目标左移，地球在画面里就右移。screenShift > 0 即把地球推向右侧，
     // 为左栏文字让出净空。半宽换算保证「右移 30%」与窗口尺寸无关。
+    //
+    // 纵向同理：目标下移，地球在画面里就上移，抬升量由底部面板的净空
+    // 反推（见 liftFromInset）。位移必须走相机自身的 up 轴而不是世界 Y 轴：
+    // 仰角接近正上方俯视时两者几乎垂直，用世界 Y 抬升会退化成缩放。
+    camera.up.set(0, 1, 0);
     fwd.copy(camera.position).negate().normalize();
     right.crossVectors(fwd, camera.up).normalize();
-    focus.copy(right).multiplyScalar(-current.screenShift * halfW);
+    upScreen.crossVectors(right, fwd).normalize();
+    focus
+      .copy(right)
+      .multiplyScalar(-current.screenShift * halfW)
+      .addScaledVector(upScreen, -lift * halfH);
 
-    camera.up.set(0, 1, 0);
     camera.lookAt(focus);
   }
 
@@ -237,6 +282,9 @@ export function createCameraRig(
       userTarget.azimuth = 0;
       userTarget.elevation = 0;
       userTarget.zoom = 1;
+    },
+    setBottomInset(px) {
+      bottomInsetPx = Math.max(0, px);
     },
   };
 }

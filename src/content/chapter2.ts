@@ -31,8 +31,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       <div class="chapter-mark"><b>第二节</b><span>从 1 颗到 3 万颗</span></div>
       <h2>数量不是线性增长的</h2>
       <p class="lead">
-        1965 年底编目在轨 ${int(yearValue(f, 1965))} 个，其中画面里只有
-        ${int(locatedAt(f, 1965))} 个。现在是 ${int(f.cataloguedInOrbit)} 个。
+        1965 年底在轨 ${int(yearValue(f, 1965))} 个，如今 ${int(f.cataloguedInOrbit)} 个。涨了十七倍，但只用了几个年份。
       </p>
       <div class="hint">
         <span><kbd>拖动年份轴</kbd> 看哪一年多了什么</span>
@@ -67,7 +66,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       return `
       <h2>几次事件把总数顶上去</h2>
       <p class="lead">
-        常态每年约 ${int(f.medianDelta)} 个，但有几个年份远高于此。
+        平常一年添 ${int(f.medianDelta)} 个。1999 年添了 ${int(jumpDelta(f, 1999))} 个，一次顶十年。
       </p>
       <div class="jumps">${rows}</div>
       <div class="finding">
@@ -96,8 +95,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       return `
       <h2>四成在轨物体从未工作</h2>
       <p class="lead">
-        编目在轨的 ${int(f.cataloguedInOrbit)} 个里，碎片
-        ${int(debrisTypeCount(f))} 个、火箭残骸 ${int(rocketCount(f))} 个。
+        编目在轨的 ${int(f.cataloguedInOrbit)} 个里，碎片 ${int(debrisTypeCount(f))} 个、火箭残骸 ${int(rocketCount(f))} 个。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -144,8 +142,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       return `
       <h2>七年赶上三十年</h2>
       <p class="lead">
-        2020 年至今净增 ${int(recentGain)} 个，1990 到 2019 这三十年是
-        ${int(prev30)} 个。
+        2020 年至今净增 ${int(recentGain)} 个。1990 到 2019 那三十年，一共 ${int(prev30)} 个。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -170,24 +167,14 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
   },
 ];
 
+/** 取某个跃升年份的增量，找不到时返回 0。 */
+function jumpDelta(f: Figures, year: number): number {
+  return f.historyJumps.find((j) => j.year === year)?.delta ?? 0;
+}
+
 /** 取某个年份的在轨总数，找不到时返回 0。 */
 function yearValue(f: Figures, year: number): number {
   return f.historySeries.find((s) => s.year === year)?.inOrbit ?? 0;
-}
-
-/**
- * 取某个年份为止、可定位集合的累积数量。
- *
- * 这是球上真正画出来的那一批：GP 根数集合只覆盖有公开根数、能被逐一定位的对象，
- * 最早的发射年是 1964。正文里引用历史增长用编目口径（SATCAT），
- * 而画面用可定位口径，两个数并排写出来读者才不会对不上。
- */
-function locatedAt(f: Figures, year: number): number {
-  let n = 0;
-  for (const r of f.launchCumulative) {
-    if (r.year <= year) n = r.cumulative;
-  }
-  return n;
 }
 
 /** 取某个年份的净增，找不到时返回 0。 */

@@ -372,6 +372,26 @@ async function main(): Promise<void> {
     };
   }
 
+  /**
+   * 把「视口底部被面板占掉多少」报给相机。
+   *
+   * 相机不知道 DOM 的存在，面板高度只有这里知道。三个时刻各报一次即可：
+   * 换仪器、读者折叠或展开、窗口尺寸变化。相机每帧只做一次换算，
+   * 于是球体的纵向位置始终跟着面板走：面板高，球抬起来；收起了，球落回去。
+   */
+  function reportBottomInset() {
+    const layer = instrumentLayer;
+    if (!layer) return;
+    const inst = layer.querySelector('.instrument:not([hidden])');
+    if (!inst) {
+      rig.setBottomInset(0);
+      return;
+    }
+    const r = inst.getBoundingClientRect();
+    // 面板顶到视口下沿的那一段，就是被占掉的高度
+    rig.setBottomInset(Math.max(0, window.innerHeight - r.top));
+  }
+
   const ticks = mountStageTicks(
     ALL_STEPS.map((s) => ({ id: s.id, nav: s.nav })),
     (id) => story.goTo(id)
@@ -399,6 +419,7 @@ async function main(): Promise<void> {
     }
     instruments.set(scenes.instrument);
     instruments.update(instrumentPayload());
+    reportBottomInset();
 
     // 刻度状态：只在与上次不同时写 DOM
     const key = `${state.index}`;
@@ -411,6 +432,35 @@ async function main(): Promise<void> {
       }
     }
   });
+
+  // 读者折叠或展开面板时球要跟着落回去或抬起来。
+  // 折叠按钮在宿主内部，那里拿不到相机，因此在这里用委托监听一次。
+  instrumentLayer.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement | null)?.closest('.instrument-fold')) {
+      // 面板高度在这一帧之后才更新，等一次布局再量
+      requestAnimationFrame(reportBottomInset);
+    }
+  });
+
+  // ---------- 尾页静音 ----------
+  //
+  // 仪器层固定在右下角，而尾页是全宽的文字页。读者滚到尾页时，
+  // 上一章的仪器还留在原位压着正文，两条信息叠在一起谁都读不清。
+  // 用 IntersectionObserver 判断尾页是否进入视口，进入就把整层淡出。
+  //
+  // 为什么不用「滚过最后一步」来判断：尾页前面还有一段滚动余量，
+  // 按步骤判断会让仪器在读者开始读尾页之前就消失，出现一段空窗。
+  const methodsEl = document.getElementById('methods');
+  if (methodsEl) {
+    const muteObserver = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) instruments.setMuted(e.isIntersecting);
+      },
+      // 尾页顶部越过视口下沿一小段之后才静音，避免与正文末步争抢
+      { rootMargin: '0px 0px -12% 0px' }
+    );
+    muteObserver.observe(methodsEl);
+  }
 
   // ---------- 仪表读数 ----------
   const epochEl = document.getElementById('epoch-value');
@@ -577,6 +627,7 @@ async function main(): Promise<void> {
     rig.camera.aspect = window.innerWidth / window.innerHeight;
     rig.camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    reportBottomInset();
   });
 
   // 首帧渲染完成后再撤遮罩，避免出现空场景一闪

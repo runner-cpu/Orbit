@@ -95,7 +95,10 @@ const TABLE: Record<string, SceneState> = {
   // ---------- 第一章 ----------
   establish: {
     pose: { azimuth: 0.62, elevation: 0.34, distance: 5.2, screenShift: 0.28 },
-    categoryMix: 0,
+    // 开场就把类别色带上来：右栏那台仪器每一行前面有一个色点，
+    // 球上如果还是单色，色点就指不到任何东西，点选也只剩明暗变化。
+    // 0.85 而不是 1：留一点主色调，画面不至于被读成一张分类图。
+    categoryMix: 0.85,
     dim: 0,
     emphasize: null,
     referenceLayers: true,
@@ -708,17 +711,22 @@ export function createChapterScenes(
     catalog.setYearMax(yearMax);
 
     // 强调集合变化时才重写缓冲区，避免每帧上传 15,934 条数据。
-    // 用户选了某一类时以用户的为准：被排除的类压暗而不是消失，
-    // 「这一类有多少」与「其余还有多少」于是能同时留在画面上。
+    //
+    // 用户点选某一类时，同时把 dim 提上去：只靠 emphasizeCategories 的
+    // rest 值压暗是不够的，着色器里未选中的点算出来是 1.04 倍亮度、
+    // 选中是 1.12 倍，差 8%，屏幕上几乎看不出变化。dim 提到 0.82 之后
+    // 未选中落到 0.2 倍、选中 1.12 倍，对比接近 6 倍，点选这件事才真的
+    // 在画面上发生。其余类别仍然可见，只是退到背景里。
     const emphasisKey = override.category === null ? next.emphasize : emphasisFor(override.category);
     if (emphasisKey !== currentEmphasis) {
       currentEmphasis = emphasisKey;
       if (emphasisKey) {
-        catalog.emphasizeCategories(emphasisKey, 0.34);
+        catalog.emphasizeCategories(emphasisKey, override.category === null ? 0.34 : 0);
       } else {
         catalog.clearEmphasis();
       }
     }
+    catalog.setDim(override.category === null ? next.dim : Math.max(next.dim, 0.82));
 
     // ---------- 碎片层 ----------
     debris.points.visible = next.debrisVisible ?? false;
