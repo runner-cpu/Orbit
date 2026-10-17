@@ -159,12 +159,13 @@ export function createFamilyInstrument(): Instrument {
   /** 场景预设的群也用同样的高亮，用户不必先点一下才知道当前看的是哪个。 */
   function syncActive(p?: InstrumentPayload) {
     const preset = p ? presetGroup(p) : null;
-    const shown = active ?? preset;
+    // 正文里的图例也能锁定群；面板必须跟着亮，否则两个入口各说各的。
+    const shown = active ?? p?.group ?? preset;
     for (const node of rowsHost.children) {
       const b = node as HTMLElement;
       b.dataset.active = String(shown !== null && Number(b.dataset.group) === shown);
     }
-    if (active !== null) readHost.textContent = '已锁定该群，再点一次取消';
+    if (active !== null || p?.group != null) readHost.textContent = '已锁定该群，再点一次取消';
     else if (preset !== null) readHost.textContent = '这一步只显示这一个群，点选可切换';
     else readHost.textContent = '点选一个群，只看它；再点一次取消';
   }

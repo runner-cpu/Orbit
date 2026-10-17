@@ -16,7 +16,7 @@
  *     同一类对象画两条横条：空心的是编目记下的，实心的是球上画得出来的。
  *     两条长度差得很远，这不是绘图错误，而是本页最核心的一个事实：
  *     编目里有 12,556 个碎片，但只有 2 个还留着公开轨道根数，因此只画得出 2 个。
- *     读者点「碎片」那一行，球会整体暗下去，只剩两个点亮着 —— 点选的结果
+ *     读者点「碎片」那一行，球会整体暗下去，只剩两个点亮着。点选的结果
  *     本身就是这个差额的证明。
  *
  * 为什么把这两个口径并排放在同一行，而不是分两个视图：
@@ -286,20 +286,22 @@ export function createCompositionInstrument(): Instrument {
     readHost.textContent = defaultRead();
   }
 
-  function syncActive() {
+  function syncActive(p?: InstrumentPayload) {
+    // 正文里的图例也能锁定类别；面板要跟着亮，否则两个入口各说各的。
+    const shown = active ?? p?.category ?? null;
     for (const node of rowsHost.children) {
       const b = node as HTMLElement;
       if (b.dataset.cat === undefined) continue;
-      b.dataset.active = String(active !== null && Number(b.dataset.cat) === active);
+      b.dataset.active = String(shown !== null && Number(b.dataset.cat) === shown);
     }
     // 撤销锁定时读数要回到默认那句。之前这里直接 return，
     // 于是按 Esc 之后面板上还留着上一类的说明，说的和画面不是一件事。
-    if (active === null) {
+    if (shown === null) {
       readHost.textContent = defaultRead();
       return;
     }
     const row = [...rowsHost.children].find(
-      (n) => (n as HTMLElement).dataset.cat === String(active)
+      (n) => (n as HTMLElement).dataset.cat === String(shown)
     ) as HTMLElement | undefined;
     const label = row?.querySelector('.comp-label')?.textContent ?? '该类';
     const n = Number(row?.dataset.located ?? '0');
@@ -368,7 +370,7 @@ export function createCompositionInstrument(): Instrument {
     },
     update(p) {
       paint(p);
-      syncActive();
+      syncActive(p);
     },
     setVisible(v) {
       root.hidden = !v;

@@ -76,6 +76,16 @@ export interface InstrumentPayload {
   category: number | null;
   /** 用户当前锁定的碎片群（null = 跟随场景），第三、四章的仪器回读它 */
   group: number | null;
+  /**
+   * 用户当前锁定的高度区间（null = 未锁定）。
+   *
+   * 为什么仪器要回读它：同一件事现在有两个入口 —— 右下角面板，以及正文里
+   * 那一行数字。从正文锁定之后，面板上如果还写着「点选一层」，两处说的
+   * 就不是同一件事了。仪器回读这个字段，把高亮同步过去。
+   */
+  band: { lo: number; hi: number | null } | null;
+  /** 用户当前锁定的近地点档（null = 未锁定）。同上，供直方图回读。 */
+  bin: { lo: number; hi: number } | null;
 }
 
 /**

@@ -100,12 +100,20 @@ export function createAltitudeInstrument(): Instrument {
     axisHost.append(topTick);
   }
 
-  function syncActive() {
+  /**
+   * 高亮当前生效的那一层。
+   *
+   * 面板自己的点击记在 activeLo 里；正文里那一行数字锁定的层只有场景层知道，
+   * 因此还要读 p.band。两个入口指向同一件事，画面上必须只有一个高亮，
+   * 否则读者会以为它们控制的是不同的东西。
+   */
+  function syncActive(p?: InstrumentPayload) {
+    const shown = activeLo ?? p?.band?.lo ?? null;
     for (const node of barsHost.children) {
       const b = node as HTMLElement;
-      b.dataset.active = String(activeLo !== null && Number(b.dataset.lo) === activeLo);
+      b.dataset.active = String(shown !== null && Number(b.dataset.lo) === shown);
     }
-    readHost.textContent = activeLo === null ? '点选一层，只看这一层' : '已锁定该层，再点一次取消';
+    readHost.textContent = shown === null ? '点选一层，只看这一层' : '已锁定该层，再点一次取消';
   }
 
   return {
@@ -169,7 +177,7 @@ export function createAltitudeInstrument(): Instrument {
     },
     update(p) {
       paint(p);
-      syncActive();
+      syncActive(p);
     },
     setVisible(v) {
       root.hidden = !v;

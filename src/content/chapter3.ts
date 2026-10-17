@@ -33,15 +33,19 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
         一枚动能拦截器在 865 公里高处击中了已经失效的气象卫星风云一号C。
       </p>
       <div class="readouts">
-        <div class="readout">
+        <div class="readout" style="--frac:${(g.count / Math.max(1, familyTotal(f, 'fengyun1c'))).toFixed(3)}">
           <span class="readout-k">可定位碎片</span>
           <span class="readout-v is-warn">${int(g.count)}<small>个</small></span>
         </div>
-        <div class="readout">
+        <div class="readout" style="--frac:1">
           <span class="readout-k">编目中属于该事件的碎片</span>
           <span class="readout-v">${int(familyTotal(f, 'fengyun1c'))}<small>个</small></span>
+          <div class="readout-note">
+            其中 ${int(familyTotal(f, 'fengyun1c') - g.count)} 个已再入或已失去跟踪
+          </div>
         </div>
       </div>
+      <p class="try">右栏的群选择器可以点：只看这一个群，或切到别的群。</p>
       ${fold(`
         <p>
           左侧为 GP 轨道根数集合（可定位），右侧为 SATCAT 编目记录
@@ -110,7 +114,7 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
         ${fixed((g.above800km / g.count) * 100)}%。它们可能比人的寿命还长。
       </p>
       <div class="readouts">
-        <div class="readout">
+        <div class="readout is-control" data-globe="bin:750:800" tabindex="0">
           <span class="readout-k">近地点中位数</span>
           <span class="readout-v">${fixed(g.perigeeMedianKm)}<small>km</small></span>
           <div class="readout-note">
@@ -125,6 +129,7 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
       <div class="finding is-warn">
         <p>撞击发生的高度，不等于碎片停留的高度。</p>
       </div>
+      <p class="try">点上面那一栏，球上只留 750 至 800 公里这一层；再点一次取消。</p>
       ${fold(`
         <p>
           本页不对大气密度做数值建模，也不画密度曲线：那需要引入标准大气模型

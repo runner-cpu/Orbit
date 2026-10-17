@@ -370,6 +370,8 @@ async function main(): Promise<void> {
       debrisGroups: scenes.debrisGroups,
       category: scenes.category,
       group: scenes.group,
+      band: scenes.band,
+      bin: scenes.bin,
     };
   }
 
@@ -442,6 +444,7 @@ async function main(): Promise<void> {
 
   let lastTickState = '';
   let lastScene = '';
+  let lastStepId = '';
   story.onStep((state) => {
     const scene = sceneById.get(state.id) ?? 'establish';
     scenes.apply(state, scene);
@@ -455,8 +458,14 @@ async function main(): Promise<void> {
     if (scene !== lastScene) {
       lastScene = scene;
       instruments.resetUserState();
-      // 章节换了，上一步在正文里锁定的行也跟着失效：留着一个锁定标记
-      // 而球上已经换了景象，读者会以为图表坏了。
+    }
+    // 正文里的锁定按「步」失效，而不是按「场景」。
+    //
+    // 有些相邻步骤共用同一个场景（第五章的「按层看」与「时间常数」都停在
+    // decay-observe）。只按场景判断时，读者在上一页锁了一层高度、翻到下一页
+    // 仍带着这个筛选，而那一页的正文已经在讲时间常数了。
+    if (state.id !== lastStepId) {
+      lastStepId = state.id;
       rail.reset();
     }
     instruments.set(scenes.instrument);

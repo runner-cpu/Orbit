@@ -123,16 +123,18 @@ export function createPerigeeInstrument(): Instrument {
     }
     readHost.textContent = '悬停看某一档的数量，点选只看这一档';
   }
-  function syncActive() {
+  /** 同上：面板的点击与正文里的行是两个入口，只高亮一个。 */
+  function syncActive(p?: InstrumentPayload) {
+    const shown = activeLo ?? p?.bin?.lo ?? null;
     for (const node of barsHost.children) {
       const b = node as HTMLElement;
       if (b.dataset.empty === 'true') continue;
-      b.dataset.active = String(activeLo !== null && Number(b.dataset.lo) === activeLo);
+      b.dataset.active = String(shown !== null && Number(b.dataset.lo) === shown);
     }
     readHost.textContent =
-      activeLo === null
+      shown === null
         ? '悬停看某一档的数量，点选只看这一档'
-        : `已锁定 ${activeLo} 公里档，再点一次取消`;
+        : `已锁定 ${shown} 公里档，再点一次取消`;
   }
 
   return {
@@ -187,7 +189,7 @@ export function createPerigeeInstrument(): Instrument {
     },
     update(p) {
       paint(p);
-      syncActive();
+      syncActive(p);
     },
     setVisible(v) {
       root.hidden = !v;

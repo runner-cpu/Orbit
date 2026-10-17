@@ -31,6 +31,10 @@ export interface DebrisGroupFigures {
 /** 高度层与清除速度。第五章的核心读数。 */
 export interface BandFigure {
   label: string;
+  /** 层的近地点区间。正文里的分层行用它接上球体的高度筛选。 */
+  lo: number;
+  /** 最上一层没有上界，用 null 表示。 */
+  hi: number | null;
   initial: number;
   alive: number;
   decayed: number;
@@ -268,6 +272,8 @@ export function buildFigures(
     .filter((b) => b.decayed + b.alive > 0)
     .map((b) => ({
       label: b.label,
+      lo: b.lo,
+      hi: b.hi,
       initial: b.initial,
       alive: b.alive,
       decayed: b.decayed,

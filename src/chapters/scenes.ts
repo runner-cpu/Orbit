@@ -482,6 +482,10 @@ export interface ChapterScenes {
   readonly category: number | null;
   /** 用户锁定的碎片群（null = 跟随场景），第三、四章的仪器回读它 */
   readonly group: number | null;
+  /** 用户锁定的高度区间（null = 未锁定），第一章的高度尺回读它 */
+  readonly band: { lo: number; hi: number | null } | null;
+  /** 用户锁定的近地点档（null = 未锁定），第三、五章的直方图回读它 */
+  readonly bin: { lo: number; hi: number } | null;
   /** 当前场景该挂哪台仪器。null = 不挂。主循环用它切仪器 */
   readonly instrument: InstrumentId | null;
   /**
@@ -803,6 +807,12 @@ export function createChapterScenes(
     },
     get group() {
       return override.group;
+    },
+    get band() {
+      return override.band;
+    },
+    get bin() {
+      return override.bin;
     },
     get instrument() {
       return stateFor(currentSceneId).instrument ?? null;

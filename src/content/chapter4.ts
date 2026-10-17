@@ -16,6 +16,14 @@
 import { int, fixed } from '../core/format';
 import { fold, nextCue, type StepCopy } from './chapter1';
 
+/**
+ * 碎片群号。与 scenes.ts 的 GROUP 一致，也与点云的分组编码一致。
+ *
+ * 文案层原本直接写 group:1 / group:2，读起来是两个没有含义的数字。
+ * 这里给一次命名，改编码时只需要改这一处。
+ */
+const GID = { cosmos2251: 1, iridium33: 2 } as const;
+
 export const CHAPTER_FOUR_STEPS: StepCopy[] = [
   {
     id: 'impact-arrive',
@@ -33,12 +41,12 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
         已经失效的宇宙 2251 与仍在工作的铱星 33，在 790 公里高处撞上了。
       </p>
       <div class="readouts">
-        <div class="readout" style="--frac:1; --bar:rgba(79,195,247,.7)">
+        <div class="readout is-control" data-globe="group:${GID.cosmos2251}" tabindex="0" style="--frac:1; --bar:rgba(79,195,247,.7)">
           <span class="readout-k">宇宙 2251 碎片</span>
           <span class="readout-v mono-value" style="color:#4fc3f7">${int(c.count)}<small>个</small></span>
           <div class="readout-note">近地点中位数 ${fixed(c.perigeeMedianKm)} 公里</div>
         </div>
-        <div class="readout" style="--frac:${(i.count / c.count).toFixed(3)}; --bar:rgba(255,213,79,.7)">
+        <div class="readout is-control" data-globe="group:${GID.iridium33}" tabindex="0" style="--frac:${(i.count / c.count).toFixed(3)}; --bar:rgba(255,213,79,.7)">
           <span class="readout-k">铱星 33 碎片</span>
           <span class="readout-v mono-value" style="color:#ffd54f">${int(i.count)}<small>个</small></span>
           <div class="readout-note">
@@ -47,6 +55,7 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
           </div>
         </div>
       </div>
+      <p class="try">点任一栏，球上只留那一个群的碎片；再点一次回到两个群。</p>
       ${fold(`
         <p>
           两个群来自 CelesTrak 的两份独立碎片根数表，按 NORAD 编号与在轨编目去重后无重叠。
@@ -124,6 +133,7 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
       <div class="finding is-warn">
         <p>两次解体性质不同，后果的形态相同：都被抛进一个长期保持的高度层。</p>
       </div>
+      <p class="try">右栏的转盘可以转：换个角度看这两层碎片是怎么交叉的。</p>
       ${fold(`
         <p>
           低地球轨道上的物体都以约每秒 7.5 公里的速度运行。两个轨道面夹角越大，

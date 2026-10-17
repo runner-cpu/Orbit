@@ -115,6 +115,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
           </div>
         </div>
       </div>
+      <p class="try">右栏的构成尺可以点：点「碎片」那一行，球上只剩画得出来的那两个。</p>
       ${fold(`
         <p>
           对象类型取自 SATCAT 的 OBJECT_TYPE 字段（DEB / R/B / PAY）。
@@ -143,7 +144,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       return `
       <h2>七年赶上三十年</h2>
       <p class="lead">
-        2020 年至今净增 ${int(recentGain)} 个。1990 到 2019 那三十年，一共 ${int(prev30)} 个。
+        2020 年至今净增 ${int(recentGain)} 个。1990 到 2019 三十年，一共 ${int(prev30)} 个。
       </p>
       <div class="readouts">
         <div class="readout">
@@ -155,6 +156,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
           <span class="readout-v">+${int(yearValue2(f, f.historyLastYear))}<small>个</small></span>
         </div>
       </div>
+      <p class="try">拖动右栏年份轴的游标，球上只留那一年之前发射的东西。</p>
       ${fold(`
         <p>
           净增 = 该年在轨编目数 − 上一年在轨编目数，含再入造成的减少，

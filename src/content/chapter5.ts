@@ -74,8 +74,10 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
           // 用填充长度表达「这一层被清掉的比例」。读者一眼能看出
           // 从下到上是一条单调下降的曲线，这比列数字更直接。
           const hot = share < 10;
+          // 最上一层没有上界，用一个足够大的数封口：碎片近地点不会接近它。
+          const hi = b.hi ?? 100000;
           return `
-          <div class="band-row${hot ? ' is-hot' : ''}">
+          <div class="band-row is-control${hot ? ' is-hot' : ''}" data-globe="bin:${b.lo}:${hi}" tabindex="0">
             <span class="band-label mono">${b.label}</span>
             <span class="band-track"><span class="band-fill" style="width:${Math.max(0.6, share).toFixed(1)}%"></span></span>
             <span class="band-value mono">${fixed(share)}%</span>
@@ -92,6 +94,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
       <div class="finding is-warn">
         <p>低处的在消失，高处的基本没动静。</p>
       </div>
+      <p class="try">点某一层，球上只留这一层的碎片；再点一次取消。</p>
       ${fold(`
         <p>
           分层依据是编目记录中的近地点。已再入对象的近地点是它最后一次被记录到的轨道，
@@ -117,7 +120,9 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
         .filter((b) => b.initial >= 20)
         .map(
           (b) => `
-        <div class="readout"${b.tauYears === null ? '' : ` style="--frac:${Math.min(1, b.tauYears / 1700).toFixed(3)}"`}>
+        <div class="readout is-control" data-globe="bin:${b.lo}:${b.hi ?? 100000}" tabindex="0"${
+          b.tauYears === null ? '' : ` style="--frac:${Math.min(1, b.tauYears / 1700).toFixed(3)}"`
+        }>
           <span class="readout-k">${b.label}</span>
           <span class="readout-v${b.estimated ? '' : ' is-warn'}">${
             b.tauYears === null ? '无法估计' : `${int(b.tauYears)}<small>年</small>`
@@ -140,7 +145,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
           「大气会把它清掉」在 400 公里是对的，在 800 公里不成立。
         </p>
       </div>
-      <p class="try">右栏的滑块可以拖：把时间往后推，看哪些层的点先消失。</p>
+      <p class="try">点任意一层，球上只留这一层的碎片；右栏的滑块还能把时间往后推。</p>
       ${fold(`
         <p>
           时间常数由 2007 至 ${f.historyLastYear} 年的实测在轨数量按

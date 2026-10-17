@@ -96,6 +96,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
           <span class="readout-v">${int(f.workingPayloads)}<small>个</small></span>
         </div>
       </div>
+      <p class="try">右栏那台尺子把这三行画成嵌套的横条：谁包含谁，看长度。</p>
       ${fold(`
         <p>
           两个数字来自不同的数据集。轨道编目总数取自 SATCAT（CelesTrak 卫星编目），
@@ -127,6 +128,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
           <span class="readout-v is-warn">${int(f.notLocatable)}<small>个</small></span>
         </div>
       </div>
+      <p class="try">点右栏「碎片」那一行，球上只剩两个点。这一半正是它们。</p>
       ${fold(`
         <p>
           可定位数取自本作解算的 GP 编目集合；无公开根数者由 SATCAT 在轨总数与本集合求差得出，
