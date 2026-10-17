@@ -710,6 +710,16 @@ export function createChapterScenes(
     yearMax = override.year ?? next.yearMax ?? null;
     catalog.setYearMax(yearMax);
 
+    // 高度层筛选必须每帧按 override 重写，不能只在意图里写一次：
+    // apply 是「当前状态的唯一真相」，撤销时也走它。只在 altitude-band
+    // 的意图分支里 setMetricRange，撤销就没有人把区间放回去，
+    // 屏幕上的球会一直停在筛过的那一层 —— 表现是「点了没反应、也退不回去」。
+    if (override.band) {
+      catalog.setMetricRange(override.band.lo, override.band.hi ?? 1e9);
+    } else {
+      catalog.setMetricRange(null, null);
+    }
+
     // 强调集合变化时才重写缓冲区，避免每帧上传 15,934 条数据。
     //
     // 用户点选某一类时，同时把 dim 提上去：只靠 emphasizeCategories 的

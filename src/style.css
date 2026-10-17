@@ -505,21 +505,115 @@ em {
   box-shadow: inset 0 -0.5em 0 rgba(79, 195, 247, 0.13);
 }
 
-/* 读数行：一个数字加一段注解，是页面表达数据的主要形式 */
-.readouts {
-  display: grid;
-  gap: 0;
-  margin: 26px 0 0;
-  border-top: 1px solid var(--line);
-}
-
+/* 读数行：一个数字加一段注解，是页面表达数据的主要形式。
+   --frac 给出这一项占参照量的比例，行底会画一条等长的细线：
+   纯数字只能读，有线之后能比较。没给 --frac 的行不画线。 */
 .readout {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 16px;
   padding: 13px 0;
   border-bottom: 1px solid var(--line);
+  --bar: rgba(79, 195, 247, 0.55);
+}
+
+.readout[style*='--frac']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  height: 2px;
+  width: calc(var(--frac) * 100%);
+  max-width: 100%;
+  background: var(--bar);
+  opacity: 0.75;
+}
+
+/* 带 --frac 的行，底部的注解不要贴到那条线上 */
+.readout[style*='--frac'] .readout-note {
+  margin-bottom: 6px;
+}
+
+.readout.is-warn-line {
+  --bar: rgba(255, 107, 53, 0.7);
+}
+
+/* 一行操作提示。用等宽小字、放在控件下方：它解释的是「这块可以动」，
+   不是叙事内容，因此不能抢标题与正文的层级。全页只在有控件的步骤出现。 */
+.try {
+  margin: 14px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  color: var(--accent-dim);
+}
+
+/* 可以操作的行：指针变成手型，悬停时左侧亮一条细线。
+   不用背景色块，避免与已有的分隔线打架。 */
+.band-row.is-control,
+.legend-row.is-control,
+.jump-row.is-control,
+.readout.is-control {
+  cursor: pointer;
+  position: relative;
+}
+
+.band-row.is-control::before,
+.legend-row.is-control::before,
+.jump-row.is-control::before,
+.readout.is-control::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.16s var(--ease);
+}
+
+.band-row.is-control:hover::before,
+.band-row.is-control:focus-visible::before,
+.legend-row.is-control:hover::before,
+.legend-row.is-control:focus-visible::before,
+.jump-row.is-control:hover::before,
+.jump-row.is-control:focus-visible::before,
+.readout.is-control:hover::before,
+.readout.is-control:focus-visible::before {
+  opacity: 1;
+}
+
+.band-row.is-control[data-locked='true']::before,
+.legend-row.is-control[data-locked='true']::before,
+.jump-row.is-control[data-locked='true']::before,
+.readout.is-control[data-locked='true']::before {
+  opacity: 1;
+  background: var(--warn);
+}
+
+.band-row.is-control[data-locked='true'] .band-fill,
+.legend-row.is-control[data-locked='true'] .legend-label,
+.jump-row.is-control[data-locked='true'] .jump-value {
+  color: var(--ink);
+}
+
+.band-row.is-control:focus-visible,
+.legend-row.is-control:focus-visible,
+.jump-row.is-control:focus-visible,
+.readout.is-control:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.readouts {
+  display: grid;
+  gap: 0;
+  margin: 26px 0 0;
+  border-top: 1px solid var(--line);
 }
 
 .readout-k {
@@ -1209,8 +1303,23 @@ em {
   display: none;
 }
 
+/* 收起之后整条头部都可以点开：最省事的动作是点标题，
+   而不是去瞄准右上角那个按钮。按钮仍在，键盘可达。 */
+.instrument-slot[data-folded='true'] .instrument-title {
+  cursor: pointer;
+  user-select: none;
+}
+
 .instrument-slot[data-folded='true'] .instrument {
-  padding: 12px 16px 10px;
+  padding: 12px 60px 10px 16px;
+}
+
+/* 收起之后，标题本身也允许被点开：整条头部都是展开热区，
+   读者不用去瞄准右上角那个小按钮。按钮仍在，键盘可达。 */
+.instrument-slot[data-folded='true'] .instrument-title {
+  cursor: pointer;
+  padding-right: 60px;
+  margin-right: -60px;
 }
 
 .instrument {
@@ -1235,22 +1344,32 @@ em {
 
 .instrument-fold {
   position: absolute;
-  top: 6px;
-  right: 8px;
-  padding: 2px 6px;
-  border: 1px solid var(--line);
-  background: none;
+  top: 0;
+  right: 0;
+  /* 面板里的图表大量使用绝对定位（高度尺的柱子、时间轴的刻度），
+     它们在 DOM 里排在按钮之后，会盖住按钮抢走点击。按钮必须显式
+     提到最上层，否则读者看到的是「点了没反应」。 */
+  z-index: 4;
+  /* 触控目标至少 28 像素高：原来 19 像素的小字按钮在手机上很难点中，
+     读者会以为「收不起来」。宽高一起放大，同时保持视觉上的轻。 */
+  min-width: 52px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: rgba(4, 7, 13, 0.55);
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 10.5px;
   letter-spacing: 0.06em;
   cursor: pointer;
-  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+  transition: color 0.18s var(--ease), background-color 0.18s var(--ease);
 }
 
 .instrument-fold:hover,
 .instrument-fold:focus-visible {
-  color: var(--ink-mid);
-  border-color: var(--line-strong);
+  color: var(--ink);
+  background: rgba(22, 51, 74, 0.7);
 }
 
 .instrument-fold:focus-visible {
@@ -1464,6 +1583,8 @@ em {
   font-size: 11.5px;
   letter-spacing: 0.03em;
   color: var(--ink-dim);
+  /* 右上角有折叠按钮，长标题要提前折行，不能钻到按钮底下 */
+  padding-right: 58px;
 }
 
 /* 列之间不留 gap：横轴刻度是按公里线性定位的百分比，任何固定像素的

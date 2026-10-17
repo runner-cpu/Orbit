@@ -57,10 +57,9 @@ export interface Picker {
  * 再把范围外的点按空间网格跳过。实际点击时只需要检查几百个点。
  */
 export function createPicker(): Picker {
-  const ray = new THREE.Ray();
   const camPos = new THREE.Vector3();
   const tmp = new THREE.Vector3();
-  const closest = new THREE.Vector3();
+  const projected = new THREE.Vector3();
 
   return {
     pick(layer, camera, ndc, maxKm, accept) {
@@ -72,27 +71,36 @@ export function createPicker(): Picker {
 
       // 由 NDC 反推世界空间射线
       camera.getWorldPosition(camPos);
-      const dir = new THREE.Vector3(ndc.x, ndc.y, 0.5)
-        .unproject(camera)
-        .sub(camPos)
-        .normalize();
-      ray.set(camPos, dir);
+      const dir = tmp.set(ndc.x, ndc.y, 0.5).unproject(camera).sub(camPos).normalize();
+      const dx = dir.x;
+      const dy = dir.y;
+      const dz = dir.z;
 
       const maxDistSq = maxKm * maxKm;
       let best = -1;
       let bestDistSq = maxDistSq;
       let bestAlong = Infinity;
 
+      // 热点路径：悬停探针会以每秒十余次的频率调用它，逐点 clone()
+      // 会产生上万个临时向量，把一帧的预算吃光。全部改写成标量运算。
       for (let i = 0; i < n; i += 1) {
         const o = i * 3;
-        tmp.set(positions[o], positions[o + 1], positions[o + 2]);
+        const px = positions[o];
+        const py = positions[o + 1];
+        const pz = positions[o + 2];
+        const ox = px - camPos.x;
+        const oy = py - camPos.y;
+        const oz = pz - camPos.z;
         // 相机背后的点直接跳过
-        const along = tmp.clone().sub(camPos).dot(dir);
+        const along = ox * dx + oy * dy + oz * dz;
         if (along <= 0) continue;
         // 只考虑比当前最佳命中更近的点：这样远处的点不会盖住近处的
         if (along > bestAlong + 400) continue;
-        ray.closestPointToPoint(tmp, closest);
-        const d = closest.distanceToSquared(tmp);
+        // 点到射线的距离平方
+        const cx = ox - dx * along;
+        const cy = oy - dy * along;
+        const cz = oz - dz * along;
+        const d = cx * cx + cy * cy + cz * cz;
         if (d > maxDistSq) continue;
         if (accept && !accept(i)) continue;
         if (d < bestDistSq || (Math.abs(d - bestDistSq) < 1 && along < bestAlong)) {
@@ -105,11 +113,11 @@ export function createPicker(): Picker {
       if (best < 0) return null;
 
       const o = best * 3;
-      tmp.set(positions[o], positions[o + 1], positions[o + 2]).project(camera);
+      projected.set(positions[o], positions[o + 1], positions[o + 2]).project(camera);
       return {
         index: best,
-        screenX: ((tmp.x + 1) / 2) * window.innerWidth,
-        screenY: ((1 - tmp.y) / 2) * window.innerHeight,
+        screenX: ((projected.x + 1) / 2) * window.innerWidth,
+        screenY: ((1 - projected.y) / 2) * window.innerHeight,
       };
     },
     dispose() {

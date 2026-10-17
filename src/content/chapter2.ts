@@ -55,7 +55,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       const rows = jumps
         .map(
           (j) => `
-        <div class="jump-row">
+        <div class="jump-row" data-globe="year:${j.year}" tabindex="0">
           <span class="jump-year mono">${j.year}</span>
           <span class="jump-track"><span class="jump-fill" style="width:${Math.min(100, (j.delta / maxJump(f)) * 100).toFixed(1)}%"></span></span>
           <span class="jump-value mono">+${int(j.delta)}</span>
@@ -72,6 +72,7 @@ export const CHAPTER_TWO_STEPS: StepCopy[] = [
       <div class="finding">
         <p>今天的拥挤不是慢慢积累的结果，是几次具体事件一次性改变的。</p>
       </div>
+      <p class="try">点某一年，球上只留那年之前在轨的东西；再点一次回到 1980。</p>
       ${fold(`
         <p>
           序列由 SATCAT 编目记录逐年重建：对每个年份统计「发射年 ≤ 该年，

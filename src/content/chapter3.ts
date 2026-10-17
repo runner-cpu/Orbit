@@ -66,7 +66,7 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
           // 主峰区间在 750 至 850 公里。用暖色标出，与后文的大气清除讨论呼应。
           const hot = b.lo >= 750 && b.lo < 850;
           return `
-          <div class="band-row${hot ? ' is-hot' : ''}">
+          <div class="band-row${hot ? ' is-hot' : ''}" data-globe="bin:${b.lo}:${b.hi}" tabindex="0">
             <span class="band-label mono">${b.lo}-${b.hi}</span>
             <span class="band-track"><span class="band-fill" style="width:${((b.count / max) * 100).toFixed(1)}%"></span></span>
             <span class="band-value mono">${int(b.count)}</span>
@@ -83,6 +83,7 @@ export const CHAPTER_THREE_STEPS: StepCopy[] = [
       <div class="finding">
         <p>能量把碎片撒成了一个很宽的壳，大气只对最低的那部分起作用。</p>
       </div>
+      <p class="try">指针移到某一档上，球上只留这一段高度；点一下锁定。</p>
       ${fold(`
         <p>
           高度一律为近地点高度，由轨道半长轴与偏心率反算

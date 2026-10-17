@@ -188,13 +188,24 @@ export function createInstrumentHost(
 
       const btn = el('button', 'instrument-fold mono');
       btn.type = 'button';
-      btn.addEventListener('click', () => {
+      const toggle = () => {
         if (folded.has(id)) folded.delete(id);
         else folded.add(id);
         applyFold(id);
-      });
+      };
+      btn.addEventListener('click', toggle);
       const panel = slot.querySelector('.instrument');
-      if (panel) panel.prepend(btn);
+      if (panel) {
+        panel.prepend(btn);
+        // 收起状态下整块面板都可以点开。有些仪器没有标题（高度尺、年份轴、
+        // 时间滑块），点标题那条路走不通；而收起之后面板只剩一行字，
+        // 读者的下意识动作就是点它。按钮本身不参与，它自己已经绑了 toggle。
+        panel.addEventListener('click', (e) => {
+          if (!folded.has(id)) return;
+          if ((e.target as Element | null)?.closest('.instrument-fold')) return;
+          toggle();
+        });
+      }
       applyFold(id);
     }
     return inst;
@@ -301,6 +312,11 @@ export function clamp01(v: number): number {
  * 用 pointer capture 而不是在 window 上挂 mousemove：
  * 指针移出元素甚至移出窗口时仍能收到事件，松手也不会漏掉 pointerup
  * 导致「一直处于拖动中」。触摸设备上同一套代码可用。
+ *
+ * 落点判断：拖拽容器往往同时是若干按钮的父元素（仪器的折叠按钮、
+ * 直方图的柱子就住在里面）。pointerdown 一旦捕获指针，后续事件全部
+ * 重定向到容器，按钮自己的 click 就不再触发 —— 表现是「按钮点不动」。
+ * 所以落在可交互子元素上的按下不启动拖拽，让按钮自己处理。
  */
 export function attachDrag(
   target: HTMLElement,
@@ -309,7 +325,17 @@ export function attachDrag(
 ): () => void {
   let dragging = false;
 
+  /** 按下点是否落在某个按钮 / 滑块 / 链接上。 */
+  function fromControl(e: PointerEvent): boolean {
+    const el = e.target as Element | null;
+    if (!el || el === target) return false;
+    return !!el.closest(
+      'button, a, input, select, textarea, summary, [role="slider"], [role="button"], .instrument-fold'
+    );
+  }
+
   const down = (e: PointerEvent) => {
+    if (fromControl(e)) return;
     dragging = true;
     target.setPointerCapture(e.pointerId);
     onStateChange?.(true);

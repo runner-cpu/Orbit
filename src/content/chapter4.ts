@@ -33,12 +33,12 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
         已经失效的宇宙 2251 与仍在工作的铱星 33，在 790 公里高处撞上了。
       </p>
       <div class="readouts">
-        <div class="readout">
+        <div class="readout" style="--frac:1; --bar:rgba(79,195,247,.7)">
           <span class="readout-k">宇宙 2251 碎片</span>
           <span class="readout-v mono-value" style="color:#4fc3f7">${int(c.count)}<small>个</small></span>
           <div class="readout-note">近地点中位数 ${fixed(c.perigeeMedianKm)} 公里</div>
         </div>
-        <div class="readout">
+        <div class="readout" style="--frac:${(i.count / c.count).toFixed(3)}; --bar:rgba(255,213,79,.7)">
           <span class="readout-k">铱星 33 碎片</span>
           <span class="readout-v mono-value" style="color:#ffd54f">${int(i.count)}<small>个</small></span>
           <div class="readout-note">
@@ -72,11 +72,11 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
         两个群一个偏 74 度，一个偏 86 度。差的这 ${diff} 度，就是那次相撞的全部原因。
       </p>
       <div class="readouts">
-        <div class="readout">
+        <div class="readout" style="--frac:${(c.inclMedianDeg / 90).toFixed(3)}">
           <span class="readout-k">宇宙 2251 倾角中位数</span>
           <span class="readout-v mono-value" style="color:#4fc3f7">${fixed(c.inclMedianDeg)}<small>°</small></span>
         </div>
-        <div class="readout">
+        <div class="readout" style="--frac:${(i.inclMedianDeg / 90).toFixed(3)}">
           <span class="readout-k">铱星 33 倾角中位数</span>
           <span class="readout-v mono-value" style="color:#ffd54f">${fixed(i.inclMedianDeg)}<small>°</small></span>
         </div>
@@ -84,6 +84,7 @@ export const CHAPTER_FOUR_STEPS: StepCopy[] = [
       <div class="finding">
         <p>相撞是两条交叉轨道在交线上的一处时间重合。</p>
       </div>
+      <p class="try">拖动右栏的转盘，两条轨道面会跟着转；差的这 ${diff} 度就是全部原因。</p>
       ${fold(`
         <p>
           倾角取自 GP 轨道根数，逐点统计后给出区间与中位数。

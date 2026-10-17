@@ -23,6 +23,7 @@ import { loadSceneData, loadDebrisData, loadHistoryData } from './core/data';
 import { cameraDistanceKm, int, isoDate, scaled } from './core/format';
 import { createInstrumentHost, type Instrument, type InstrumentId } from './core/instrument';
 import { createPicker } from './core/picking';
+import { mountRailControls } from './core/railControl';
 
 import { buildFigures, type DebrisGroupFigures } from './content/figures';
 import { CHAPTER_ONE_STEPS, type StepCopy } from './content/chapter1';
@@ -372,6 +373,44 @@ async function main(): Promise<void> {
     };
   }
 
+  // ---------- 叙事栏里的直接操作 ----------
+  //
+  // 左栏的每一行原本只是「标签 + 数字」。把它们接上球体之后，
+  // 读者不必去找右下角那块面板，视线停在哪个数字上就在哪里操作。
+  // 悬停是预览（移出即还原），点击是锁定（再点取消）。
+  let railLocked = false;
+  // 最近一次滚动的时间戳。悬停预览要能分辨「指针主动移进来」与
+  // 「内容被滚到指针下面」—— 后者不该触发预览。
+  let lastScrollAt = 0;
+  window.addEventListener(
+    'wheel',
+    () => {
+      lastScrollAt = performance.now();
+    },
+    { passive: true }
+  );
+  window.addEventListener(
+    'touchmove',
+    () => {
+      lastScrollAt = performance.now();
+    },
+    { passive: true }
+  );
+  const railEmit = (intent: Parameters<typeof scenes.applyIntent>[0] | null) => {
+    scenes.applyIntent(intent ?? { kind: 'reset' });
+    instruments.update(instrumentPayload());
+  };
+  const rail = mountRailControls(stepEls, {
+    activeStep: () => stepEls[story.state.index] ?? null,
+    lock: (intent) => {
+      railLocked = intent !== null;
+      railEmit(intent);
+    },
+    preview: (intent) => railEmit(intent),
+    hasLock: () => railLocked,
+    isScrolling: () => performance.now() - lastScrollAt < 260,
+  });
+
   /**
    * 把「视口底部被面板占掉多少」报给相机。
    *
@@ -416,6 +455,9 @@ async function main(): Promise<void> {
     if (scene !== lastScene) {
       lastScene = scene;
       instruments.resetUserState();
+      // 章节换了，上一步在正文里锁定的行也跟着失效：留着一个锁定标记
+      // 而球上已经换了景象，读者会以为图表坏了。
+      rail.reset();
     }
     instruments.set(scenes.instrument);
     instruments.update(instrumentPayload());

@@ -83,15 +83,15 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
         人类一共往天上编过 ${int(f.cataloguedAllTime)} 个目标。今天还在的，${int(f.cataloguedInOrbit)} 个。
       </p>
       <div class="readouts">
-        <div class="readout">
+        <div class="readout" style="--frac:1">
           <span class="readout-k">历史累计编目</span>
           <span class="readout-v">${int(f.cataloguedAllTime)}<small>个</small></span>
         </div>
-        <div class="readout">
+        <div class="readout" style="--frac:${(f.cataloguedInOrbit / f.cataloguedAllTime).toFixed(3)}">
           <span class="readout-k">当前仍在轨</span>
           <span class="readout-v">${int(f.cataloguedInOrbit)}<small>个</small></span>
         </div>
-        <div class="readout">
+        <div class="readout" style="--frac:${(f.workingPayloads / f.cataloguedAllTime).toFixed(3)}">
           <span class="readout-k">其中正在工作的载荷</span>
           <span class="readout-v">${int(f.workingPayloads)}<small>个</small></span>
         </div>
@@ -115,14 +115,14 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
         球上这 ${int(f.located)} 个是能算出位置的。另外 ${int(f.notLocatable)} 个，编目里只有一行记录。
       </p>
       <div class="readouts">
-        <div class="readout">
+        <div class="readout" style="--frac:${(f.located / f.cataloguedInOrbit).toFixed(3)}">
           <span class="readout-k">可定位对象</span>
           <span class="readout-v">${int(f.located)}<small>个</small></span>
           <div class="readout-note">
             占在轨编目的 ${fixed((f.located / f.cataloguedInOrbit) * 100)}%
           </div>
         </div>
-        <div class="readout">
+        <div class="readout is-warn-line" style="--frac:${(f.notLocatable / f.cataloguedInOrbit).toFixed(3)}">
           <span class="readout-k">编目在轨但无公开根数</span>
           <span class="readout-v is-warn">${int(f.notLocatable)}<small>个</small></span>
         </div>
@@ -148,7 +148,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
           const width = Math.max(1.5, (b.count / f.located) * 100);
           const hot = b.label === '400-600 km';
           return `
-          <div class="band-row${hot ? ' is-hot' : ''}">
+          <div class="band-row${hot ? ' is-hot' : ''}" data-globe="band:${b.lo}:${b.hi}" tabindex="0">
             <span class="band-label mono">${b.label}</span>
             <span class="band-track"><span class="band-fill" style="width:${width.toFixed(2)}%"></span></span>
             <span class="band-value mono">${int(b.count)}</span>
@@ -165,6 +165,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
       <div class="finding">
         <p>近地轨道不是空旷场地，而是一个有容量上限的有限空间。</p>
       </div>
+      <p class="try">把指针放到任意一层上，球上只剩这一层；点一下锁定。</p>
       ${fold(`
         <p>
           高度为近地点高度，由 GP 轨道根数的平均运动与偏心率反算
@@ -181,16 +182,32 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
     scene: 'status',
     pinRatio: 1,
     render: (f) => {
+      // 图例的每一行都能点：点哪一类，球上就只剩哪一类亮着。
+      // 类别号与点云编码对应，文案层不需要知道着色器怎么用它。
+      const CAT_OF: Record<string, number> = {
+        working: 0,
+        failed: 1,
+        partial: 1,
+        unrecorded: 1,
+        rocket: 2,
+        debris: 3,
+        unknown: 4,
+      };
+      const PICKABLE = new Set(['working', 'failed', 'rocket', 'debris']);
       const rows = f.breakdown
         .filter((r) => r.count > 0)
-        .map(
-          (r) => `
-        <div class="legend-row">
+        .map((r) => {
+          const cat = CAT_OF[r.key];
+          const on = cat !== undefined && PICKABLE.has(r.key);
+          return `
+        <div class="legend-row${on ? ' is-control' : ''}"${
+          on ? ` data-globe="category:${cat}" tabindex="0"` : ''
+        }>
           <span class="legend-swatch ${swatchClass(r.key)}"></span>
           <span class="legend-label">${r.label}</span>
           <span class="legend-value">${int(r.count)}</span>
-        </div>`
-        )
+        </div>`;
+        })
         .join('');
 
       return `
@@ -199,6 +216,7 @@ export const CHAPTER_ONE_STEPS: StepCopy[] = [
         还在工作的载荷 ${int(f.workingPayloads)} 个，不到在轨总数的一半。
       </p>
       <div class="legend">${rows}</div>
+      <p class="try">点任意一类，球上只留这一类；再点一次取消。</p>
       ${fold(`
         <p>
           分类依据 SATCAT 的对象类型与运行状态码。

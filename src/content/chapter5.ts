@@ -28,10 +28,11 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
     scene: 'decay-now',
     pinRatio: 1.2,
     render: (f) => {
+      const GID: Record<string, number> = { fengyun1c: 0, cosmos2251: 1, iridium33: 2 };
       const rows = f.familySummary
         .map(
           (s) => `
-        <div class="legend-row">
+        <div class="legend-row is-control" data-globe="group:${GID[s.key] ?? 0}" tabindex="0">
           <span class="legend-swatch" style="background:${swatchFor(s.key)}"></span>
           <span class="legend-label">${s.label}</span>
           <span class="legend-value">${int(s.remaining)}<small> / ${int(s.total)}</small></span>
@@ -46,6 +47,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
         三个碎片群一共 ${int(f.debrisAlive + f.debrisCleared)} 个。十九年过去，清掉 ${fixed(f.debrisClearedShare)}%。
       </p>
       <div class="legend">${rows}</div>
+      <p class="try">点一个群，球上只留这个群的碎片。</p>
       ${fold(`
         <p>
           这里的三个群取自 SATCAT 编目记录（按对象名称前缀归类），因此包含已再入的对象；
@@ -115,7 +117,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
         .filter((b) => b.initial >= 20)
         .map(
           (b) => `
-        <div class="readout">
+        <div class="readout"${b.tauYears === null ? '' : ` style="--frac:${Math.min(1, b.tauYears / 1700).toFixed(3)}"`}>
           <span class="readout-k">${b.label}</span>
           <span class="readout-v${b.estimated ? '' : ' is-warn'}">${
             b.tauYears === null ? '无法估计' : `${int(b.tauYears)}<small>年</small>`
@@ -138,6 +140,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
           「大气会把它清掉」在 400 公里是对的，在 800 公里不成立。
         </p>
       </div>
+      <p class="try">右栏的滑块可以拖：把时间往后推，看哪些层的点先消失。</p>
       ${fold(`
         <p>
           时间常数由 2007 至 ${f.historyLastYear} 年的实测在轨数量按
@@ -160,7 +163,8 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
       const rows = f.projections
         .map(
           (p) => `
-        <div class="readout">
+        <div class="readout is-control" data-globe="horizon:${p.years}" tabindex="0"
+             style="--frac:${(p.bands.reduce((s, b) => s + b.remaining, 0) / Math.max(1, f.debrisAlive)).toFixed(3)}">
           <span class="readout-k">再过 ${p.years} 年</span>
           <span class="readout-v">${int(p.bands.reduce((s, b) => s + b.remaining, 0))}<small>个仍在轨</small></span>
           <div class="readout-note">${highBandRemain(f, p.years)}</div>
@@ -179,6 +183,7 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
       <div class="finding is-warn">
         <p>时间只把问题压进更窄的一层：两百年后剩下的，八成以上在 750 公里以上。</p>
       </div>
+      <p class="try">点任一行，时间直接跳到那一年；再点一次回到现在。</p>
       ${fold(`
         <p>
           计算方式：每层取上一步拟合的时间常数，对仍在轨数量做 N(t) = N₀·e^(−t/τ)。
