@@ -3285,11 +3285,13 @@ body.is-touring #story .rail {
   transform: none;
 }
 
-/* 讲解是节选演示：折叠的「依据」与「下一节」提示不属于讲解词，
-   留着只会把正文顶出可视区（1366×768 实测正文压到页脚 HUD 上）。
-   桌面与窄屏一视同仁地收起，退出讲解后恢复。 */
+/* 讲解是节选演示：折叠的「依据」、「下一节」提示和「点任一行」这类
+   自由浏览的操作说明都不属于讲解词。留着只会把正文顶出可视区
+   （1366×768 实测正文压到页脚 HUD 上；1080p、125% 缩放时最后一步
+   还会没入底部刻度条）。桌面与窄屏一视同仁地收起，退出后恢复。 */
 body.is-touring .step .fold,
-body.is-touring .step .next-cue {
+body.is-touring .step .next-cue,
+body.is-touring .step .try {
   display: none;
 }
 
