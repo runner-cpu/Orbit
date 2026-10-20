@@ -486,8 +486,23 @@ export interface ChapterScenes {
   readonly band: { lo: number; hi: number | null } | null;
   /** 用户锁定的近地点档（null = 未锁定），第三、五章的直方图回读它 */
   readonly bin: { lo: number; hi: number } | null;
+  /**
+   * 当前编目层的类别着色强度（0 = 单色，1 = 完整类别色）。
+   *
+   * 图例要按它决定显示「按类别」还是「按碎片群」的编码说明：两步里
+   * 画面用的是两套完全不同的配色，图例写错比没有图例更糟。
+   */
+  readonly categoryMix: number;
   /** 当前场景该挂哪台仪器。null = 不挂。主循环用它切仪器 */
   readonly instrument: InstrumentId | null;
+  /**
+   * 丢掉类别强调的缓存，让下一次 apply 重新写一遍。
+   *
+   * 时间对照模式会临时把图层调成中性色并清掉强调；退出时如果只重跑 apply，
+   * 「当前强调集合」的缓存仍等于场景里的值，apply 会跳过重写，
+   * 画面就停在对照模式的中性色上。
+   */
+  refresh(): void;
   /**
    * 接收仪器的用户意图。
    *
@@ -713,6 +728,11 @@ export function createChapterScenes(
     catalog.setOpacity(next.opacity);
     yearMax = override.year ?? next.yearMax ?? null;
     catalog.setYearMax(yearMax);
+    // 年份筛选打开时同时打开残影：晚于当前年份的点以淡色留在原位。
+    // 第二章的论证是「这些位置一直都在，只是要等到那一年才亮起来」，
+    // 直接隐藏时读者看到的是一团点凭空出现，看不到「长出来」这件事本身。
+    // 其余章节没有年份筛选，开关自动为假，不会影响它们。
+    catalog.setGhost(yearMax !== null);
 
     // 高度层筛选必须每帧按 override 重写，不能只在意图里写一次：
     // apply 是「当前状态的唯一真相」，撤销时也走它。只在 altitude-band
@@ -790,6 +810,12 @@ export function createChapterScenes(
   return {
     apply,
     applyIntent,
+    refresh() {
+      // 置空而不是清图层：下一次 apply 会按场景重新写一遍强调。
+      // 直接 clearEmphasis 会让「场景本来就有强调」的那几步在退出对照后
+      // 变成全亮，直到下一次切场景才恢复。
+      currentEmphasis = null;
+    },
     get currentSceneId() {
       return currentSceneId;
     },
@@ -813,6 +839,9 @@ export function createChapterScenes(
     },
     get bin() {
       return override.bin;
+    },
+    get categoryMix() {
+      return stateFor(currentSceneId).categoryMix;
     },
     get instrument() {
       return stateFor(currentSceneId).instrument ?? null;

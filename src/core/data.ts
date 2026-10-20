@@ -91,7 +91,7 @@ export interface DebrisMeta {
 /** 碎片点云。字段顺序必须与 debris.bin 中的 stride 一致。 */
 export interface DebrisData {
   meta: DebrisMeta;
-  /** 按 stride 排布：[x, y, z, perigeeKm, apogeeKm, inclDeg, groupId] */
+  /** 按 stride 排布：[x, y, z, perigeeKm, apogeeKm, inclDeg, groupId, noradId] */
   points: Float32Array;
   /** 本次实际下载的字节数（点云 + 元数据），用于方法页的离线包体积 */
   bytes: number;
@@ -103,6 +103,7 @@ export interface DebrisData {
     apogeeKm: number;
     inclDeg: number;
     groupId: number;
+    noradId: number;
   };
 }
 
@@ -193,7 +194,7 @@ export interface HistoryData {
 
 export interface SceneData {
   catalogMeta: CatalogMeta;
-  /** 地固坐标，按 stride 排布：[x, y, z, launchYear, orbitClass, perigeeKm, category] */
+  /** 地固坐标，按 stride 排布：[x, y, z, launchYear, orbitClass, perigeeKm, category, noradId] */
   catalog: Float32Array;
   population: PopulationStats;
   /** 字段偏移，避免各处散落 magic number */
@@ -205,6 +206,8 @@ export interface SceneData {
     orbitClass: number;
     perigeeKm: number;
     category: number;
+    /** NORAD 编目号。读数卡用它回答「这是编目里的哪一个」。 */
+    noradId: number;
   };
   /**
    * 本次实际下载的字节数。
@@ -284,6 +287,7 @@ export async function loadSceneData(): Promise<LoadedData> {
     orbitClass: idx('orbitClass'),
     perigeeKm: idx('perigeeKm'),
     category: idx('category'),
+    noradId: idx('noradId'),
   };
 
   const bytes = metaRes.bytes + catalogBuf.byteLength + popRes.bytes;
@@ -316,8 +320,29 @@ export async function loadDebrisData(): Promise<DebrisData> {
       apogeeKm: idx('apogeeKm'),
       inclDeg: idx('inclDeg'),
       groupId: idx('groupId'),
+      noradId: idx('noradId'),
     },
   };
+}
+
+/**
+ * 编目对象名。按行与 catalog.bin 的对象顺序一一对应。
+ *
+ * 为什么单独取、而且第一次点选才取：名称附表 223 KB，gzip 后 51 KB，
+ * 比整个点云还大。绝大多数读者只看画面不点选，把它塞进首屏关键路径
+ * 会白白拖慢第一章。真正需要它的时刻只有一个：卡片要写出对象名。
+ */
+export type CatalogNames = string[];
+
+export async function loadCatalogNames(): Promise<CatalogNames> {
+  const res = await fetch(`${DATA_BASE}catalog-names.txt`);
+  if (!res.ok) throw new Error(`catalog-names.txt 加载失败：HTTP ${res.status}`);
+  const text = await res.text();
+  const lines = text.split(/\r?\n/);
+  // 文件末尾带一个换行，split 之后会多出一个空串，只去掉这一个。
+  // 不用 filter 全量去空：名称理论上可以为空，按行对齐的语义不能动。
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
 }
 
 /** 第二章与第五章的历史序列。 */

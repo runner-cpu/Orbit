@@ -145,6 +145,185 @@ body {
 }
 
 /* ============================================================================
+   场景标注层
+   ----------------------------------------------------------------------------
+   标注是「球上的一处指出」：一个色点、两行短字。它不接收指针事件，
+   拖动与点选照旧落在画布上；文字与球一起被球体遮挡（背面时整条淡出）。
+   位置由 main.ts 每帧写入 transform，CSS 只负责排版与过渡。
+   ========================================================================== */
+.anno-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  transition: opacity 0.3s var(--ease);
+}
+
+.anno-layer[data-muted='true'] {
+  opacity: 0;
+}
+
+.anno {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+  will-change: transform;
+}
+
+.anno[data-visible='true'] {
+  opacity: 1;
+}
+
+/* 左侧标签整体镜像：色点仍然贴着锚点，文字朝画面外侧展开。
+   用 row-reverse 而不是改 DOM 顺序，贴边翻边时不需要重建节点。 */
+.anno[data-side='left'] {
+  flex-direction: row-reverse;
+}
+
+.anno-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.anno-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* 标签后面压一层很薄的暗底：点云密集处不压底，字会糊在光点里 */
+  padding: 3px 7px;
+  background: rgba(4, 7, 13, 0.62);
+  border: 1px solid color-mix(in srgb, currentColor 26%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.anno[data-side='left'] .anno-body {
+  text-align: right;
+}
+
+.anno-title {
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, currentColor 88%, #ffffff);
+}
+
+.anno-value {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--ink-mid);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
+   比例尺
+   ----------------------------------------------------------------------------
+   把「画面上一段长度等于多少公里」直接标在右下角。
+   读者不需要换算地球半径倍数，也能判断那条轨道离地面多远。
+   ========================================================================== */
+.scale-bar {
+  position: fixed;
+  right: var(--gutter);
+  /* 仪器面板固定在右下角，比例尺若还压在 HUD 上就会被面板盖住。
+     --instrument-inset 是 main.ts 量出的「面板顶边到视口底」的实际像素，
+     直接用它定位，比叠加面板高度可靠：面板高度在读数填入后会二次变化，
+     而顶边是绝对位置。没有仪器时该值为 0，比例尺落回 HUD 之上。 */
+  bottom: calc(var(--instrument-inset, 0px) + 14px);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  opacity: 0.72;
+  /* 不做 bottom 过渡：仪器面板换台时是瞬间换高，比例尺若还花 0.25 秒
+     慢慢挪，中间那几帧会正好落在新面板的矩形里，看起来像压住了。
+     两者必须同帧落位。 */
+}
+
+.scale-rule {
+  display: block;
+  height: 1px;
+  width: 56px;
+  background: var(--ink-faint);
+  position: relative;
+}
+
+.scale-rule::before,
+.scale-rule::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 7px;
+  background: var(--ink-faint);
+}
+
+.scale-rule::before {
+  left: 0;
+}
+
+.scale-rule::after {
+  right: 0;
+}
+
+.scale-label {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================================
+   悬停探针
+   ----------------------------------------------------------------------------
+   指针停在球上时，在指针旁报出最近那个点是什么。它是点选的低成本预览：
+   不点也能知道那里有什么，点下去才是读数卡。
+   ========================================================================== */
+.probe {
+  position: fixed;
+  z-index: 29;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px;
+  background: rgba(4, 7, 13, 0.86);
+  border: 1px solid var(--line-strong);
+  pointer-events: none;
+}
+
+.probe[hidden] {
+  display: none;
+}
+
+.probe-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.probe-label {
+  font-size: 10.5px;
+  color: var(--ink-mid);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anno {
+    transition: none;
+  }
+}
+
+/* ============================================================================
    三维场景层
    ========================================================================== */
 .scene-layer {
@@ -237,6 +416,18 @@ body {
   background: linear-gradient(0deg, rgba(4, 7, 13, 0.94), rgba(4, 7, 13, 0.72));
 }
 
+/* 底部刻度条吃掉剩余宽度，读数格不参与挤压。
+   不给 min-width:0 时，flex 子项的默认最小宽度等于内容宽度，
+   刻度条会把右侧读数顶出视口。 */
+.hud-bottom .hud-stages {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hud-bottom .hud-counts {
+  flex: 0 0 auto;
+}
+
 .hud-cell {
   display: flex;
   align-items: center;
@@ -249,34 +440,16 @@ body {
   margin-left: auto;
 }
 
-/* 品牌标记：两个同心圆加一条倾斜轨道线，与 favicon 同构 */
+/*
+ * 品牌标记：地球在左下，两层轨道壳向上张开，外层加粗并转为警示橙。
+ * 与 favicon 同构（favicon 只是多了一圈圆角底板）。
+ * 用 SVG 而不是纯 CSS：三条弧的圆心、粗细与端点必须精确对齐，
+ * CSS 边框拼不出「从细到粗」的层积感。
+ */
 .mark {
-  position: relative;
-  width: 18px;
-  height: 18px;
   flex: none;
-  border: 1px solid var(--line-bright);
-  border-radius: 50%;
-}
-
-.mark::before {
-  content: '';
-  position: absolute;
-  inset: 3.5px;
-  border: 1px solid var(--line-strong);
-  border-radius: 50%;
-}
-
-.mark::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: -3px;
-  width: 24px;
-  height: 1px;
-  background: var(--warn);
-  transform: rotate(-26deg);
-  transform-origin: center;
+  display: block;
+  overflow: visible;
 }
 
 .hud-title {
@@ -334,12 +507,22 @@ body {
   }
 }
 
-/* 章节刻度：底部左侧，既是进度指示也是导航 */
+/* 章节刻度：底部左侧，既是进度指示也是导航。
+   19 步在 1280 宽的窗口里放不下，必须允许横向滚动：
+   早先的 overflow:hidden 会把最后几步直接裁掉，读者点不到。 */
 .hud-stages {
   display: flex;
   align-items: center;
   gap: 2px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  /* 左右各留一点渐隐，暗示还有内容 */
+  mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+
+.hud-stages::-webkit-scrollbar {
+  display: none;
 }
 
 .stage-tick {
@@ -401,6 +584,9 @@ body {
 main {
   position: relative;
   z-index: 10;
+  /* 叙事栏铺满整屏，但它不能挡住三维场景：否则球拖不动、点也点不中。
+     让容器透传指针，只有真正承载文字的 .rail 接收事件。 */
+  pointer-events: none;
 }
 
 .step {
@@ -415,6 +601,7 @@ main {
 .rail {
   grid-column: 1;
   max-width: var(--rail-w);
+  pointer-events: auto;
 }
 
 /* 首屏不需要留出等高的空栏，标题直接落在左上区域 */
@@ -426,7 +613,10 @@ main {
   .step {
     grid-template-columns: minmax(0, 1fr);
     align-items: end;
-    padding-bottom: calc(var(--hud-h) + 12vh);
+    /* 面板高度由 main.ts 写进 --instrument-h。窄屏下正文必须整体让开它，
+       否则两者压在同一块区域：390×844 实测重叠 180px。
+       +2rem 是面板与正文之间的呼吸。 */
+    padding-bottom: calc(var(--hud-h) + var(--instrument-h, 0px) + 2rem);
   }
   .rail {
     max-width: none;
@@ -1570,6 +1760,98 @@ em {
   fill: var(--accent);
 }
 
+/* ---------- 年份轴上的事件标记 ---------- */
+
+.year-event {
+  cursor: pointer;
+  outline: none;
+}
+
+.year-event-line {
+  stroke: var(--warn);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+}
+
+.year-event-head {
+  fill: var(--warn);
+  opacity: 0.75;
+}
+
+/* 选中脉冲：只在游标正好停在该事件年时播放一次，提示「你拨到的就是这一年」。
+   用 transform-box 让缩放围绕标记自身，而不是 SVG 原点。 */
+.year-event-halo {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 1;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.year-event[data-active='true'] .year-event-halo {
+  animation: year-event-pulse 1.1s ease-out 1;
+}
+
+@keyframes year-event-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.6);
+  }
+  70% {
+    opacity: 0.25;
+    transform: scale(3.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(4.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .year-event[data-active='true'] .year-event-halo {
+    animation: none;
+    opacity: 0.5;
+    transform: scale(1.6);
+  }
+}
+
+.year-event-label {
+  fill: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.year-event:hover .year-event-line,
+.year-event:focus-visible .year-event-line,
+.year-event[data-active='true'] .year-event-line {
+  opacity: 1;
+  stroke-width: 1.4;
+}
+
+.year-event:hover .year-event-label,
+.year-event:focus-visible .year-event-label,
+.year-event[data-active='true'] .year-event-label {
+  fill: var(--warn);
+}
+
+.year-event:focus-visible .year-event-head {
+  opacity: 1;
+}
+
+/* 图例末尾补一条事件说明：标记不是装饰，得告诉读者它是什么。 */
+.year-legend-item.is-event::before {
+  width: 0;
+  height: 10px;
+  border-top: 0;
+  border-left: 1px dashed var(--warn);
+  opacity: 0.8;
+}
+
 /* ---------- 第三章：近地点直方图 ---------- */
 
 .instrument-perigee {
@@ -2159,5 +2441,935 @@ button.comp-row[data-active='true'] .comp-fill {
 @media (prefers-reduced-motion: reduce) {
   .instrument {
     animation: none;
+  }
+}
+
+/* ============================================================================
+   常驻图例与筛选回显
+   ----------------------------------------------------------------------------
+   位置：左上角，紧贴顶栏下沿，与右下角的仪器面板分居两端。
+   为什么放左边：右栏已经是仪器，球体被推到画面右侧，左上这块区域
+   在桌面端是空的；放到右下会与仪器争同一块地方。
+   窄屏时收到顶栏下方的小条，只留颜色点与名称，避免压住球。
+   ========================================================================== */
+.legend-layer {
+  position: fixed;
+  z-index: 13;
+  left: var(--gutter);
+  top: calc(var(--hud-h) + 14px);
+  max-width: 244px;
+  pointer-events: none;
+}
+
+.legend-panel {
+  pointer-events: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(9px);
+  transition: opacity 0.3s var(--ease);
+}
+
+.legend-panel[data-muted='true'] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.legend-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.legend-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.legend-btn {
+  flex: none;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+
+.legend-btn:hover,
+.legend-btn:focus-visible {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.legend-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.legend-body {
+  padding: 8px 10px 10px;
+}
+
+.legend-panel[data-folded='true'] .legend-body {
+  display: none;
+}
+
+.legend-rows {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 2px;
+}
+
+/* 行既可能是 button（可筛选）也可能是 div（纯说明），
+   两种都走同一套网格，视觉上只有可点行会随指针变化。 */
+.legend-row-s {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-mid);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-align: left;
+  cursor: default;
+}
+
+button.legend-row-s {
+  cursor: pointer;
+  transition: color 0.16s var(--ease), background-color 0.16s var(--ease);
+}
+
+button.legend-row-s:hover,
+button.legend-row-s:focus-visible {
+  color: var(--ink);
+  background: rgba(22, 51, 74, 0.42);
+}
+
+button.legend-row-s:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+button.legend-row-s[data-active='true'] {
+  color: var(--ink);
+  background: rgba(79, 195, 247, 0.12);
+}
+
+button.legend-row-s[data-active='true'] .legend-label-s::after {
+  content: ' · 已选';
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.legend-sw {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+/* 残影那一行用半透明色块，与画面里的淡点对应 */
+.legend-sw[data-ghost='true'] {
+  opacity: 0.3;
+  box-shadow: none;
+}
+
+.legend-label-s {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-value-s {
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 筛选回显 ---------- */
+.legend-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.legend-filters:empty {
+  display: none;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 3px 2px 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(79, 195, 247, 0.1);
+}
+
+.filter-chip-text {
+  font-size: 9.5px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.filter-clear {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-dim);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.filter-clear:hover,
+.filter-clear:focus-visible {
+  color: var(--warn);
+}
+
+.filter-all {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 9.5px;
+  cursor: pointer;
+}
+
+.filter-all:hover,
+.filter-all:focus-visible {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+/* ---------- 点选标记 ---------- */
+.pick-marker {
+  position: fixed;
+  z-index: 28;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.pick-marker[hidden] {
+  display: none;
+}
+
+.pick-marker-ring {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.12);
+  animation: marker-pulse 2.4s var(--ease) infinite;
+}
+
+@keyframes marker-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pick-marker-ring {
+    animation: none;
+  }
+}
+
+/* 窄屏：图例收到顶栏下方的一条，横排显示，最多两行 */
+@media (max-width: 1080px) {
+  .legend-layer {
+    max-width: none;
+    right: var(--gutter);
+    top: calc(var(--hud-h) + 8px);
+  }
+  .legend-body {
+    padding: 6px 8px 8px;
+  }
+  .legend-rows {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    gap: 4px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .legend-rows::-webkit-scrollbar {
+    display: none;
+  }
+  .legend-row-s {
+    grid-template-columns: 8px auto;
+    gap: 5px;
+    padding: 2px 0;
+    font-size: 10px;
+  }
+  .legend-value-s {
+    display: none;
+  }
+  /* 只隐藏页眉里的「复制本步链接」：图例下方的两个演示模式按钮
+     也是 .legend-btn，用不带父级的 :first-of-type 会把「时间对照」一起藏掉。 */
+  .legend-head .legend-btn:first-of-type {
+    display: none;
+  }
+}
+
+/* 读屏专用：只给辅助技术，视觉上不占位 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================================
+   结论步
+   ----------------------------------------------------------------------------
+   四条结论做成可点条目而不是列表：读者读完想回头核对某一条时，
+   点它就跳回对应那一节。这比在末尾复述一遍数字有用：
+   复述只是重复，回跳才能真正验证。
+   ========================================================================== */
+.conclusions {
+  display: grid;
+  gap: 1px;
+  margin: 22px 0 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.conclusion {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  background: var(--bg);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease);
+}
+
+.conclusion:hover,
+.conclusion:focus-visible {
+  background: #08161f;
+}
+
+.conclusion:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.conclusion-n {
+  padding-top: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.conclusion-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.conclusion-h {
+  font-size: 14.5px;
+  color: var(--ink);
+}
+
+.conclusion-t {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ink-mid);
+}
+
+/* 可点条目给一个「能回去」的提示，只在悬停时出现，避免正文噪音 */
+.conclusion:hover .conclusion-h::after,
+.conclusion:focus-visible .conclusion-h::after {
+  content: ' · 回到那一节';
+  color: var(--accent-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================================
+   方法页：页面内自检
+   ----------------------------------------------------------------------------
+   这一块的读者是评审，不是普通观众。所以它默认只是一颗按钮，
+   点下去才展开逐项结果；排版按「通过 / 不符 + 名称 + 实测值」三列对齐，
+   与 verify 脚本的终端输出同构，方便对照。
+   ========================================================================== */
+.self-check-btn {
+  margin: 14px 0 0;
+  padding: 7px 14px;
+  border: 1px solid var(--line-strong);
+  background: rgba(79, 195, 247, 0.08);
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.self-check-btn:hover,
+.self-check-btn:focus-visible {
+  background: rgba(79, 195, 247, 0.16);
+  color: var(--ink);
+}
+
+.self-check-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.self-check-btn[data-done='ok'] {
+  border-color: #3f8f6a;
+  color: #7fd6a8;
+}
+
+.self-check-btn[data-done='bad'] {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.self-check-list {
+  display: grid;
+  gap: 1px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.self-check-list:empty {
+  display: none;
+}
+
+.self-check-list li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 12px;
+  margin: 0;
+  background: var(--bg);
+  font-size: 12.5px;
+}
+
+.self-check-list li::before {
+  content: none;
+}
+
+.self-check-mark {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.self-check-list li.is-ok .self-check-mark {
+  color: #7fd6a8;
+}
+
+.self-check-list li.is-bad .self-check-mark {
+  color: var(--warn);
+}
+
+.self-check-label {
+  color: var(--ink-mid);
+}
+
+.self-check-detail {
+  color: var(--ink-faint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .self-check-list li {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .self-check-detail {
+    grid-column: 2;
+    white-space: normal;
+  }
+}
+
+/* ============================================================================
+   时间对照模式（2015 ↔ 现在）
+   ----------------------------------------------------------------------------
+   全屏模式：正文、仪器与图例暂时收起，只留两半画面与一条中缝。
+   画布本身仍在最底层，对照层是透明的，只负责接收拖动与显示读数卡。
+   z-index 高于 HUD（30），否则顶部读数条会压在中缝上。
+   ========================================================================== */
+.compare-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  touch-action: none;
+  cursor: ew-resize;
+  /* 极淡的内侧压暗：让两半的边界在点云密集处仍然可读 */
+  background:
+    linear-gradient(90deg, rgba(2, 5, 9, 0.28) 0%, transparent 12%, transparent 88%, rgba(2, 5, 9, 0.28) 100%);
+}
+
+.compare-stage[hidden] {
+  display: none;
+}
+
+.compare-head {
+  position: absolute;
+  top: calc(var(--hud-h) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 6px 5px 12px;
+  background: rgba(4, 7, 13, 0.86);
+  border: 1px solid var(--line-strong);
+  pointer-events: none;
+}
+
+.compare-kicker {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.compare-close {
+  pointer-events: auto;
+  min-height: 26px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.compare-close:hover,
+.compare-close:focus-visible {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+
+.compare-side {
+  position: absolute;
+  top: calc(var(--hud-h) + 74px);
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  background: rgba(4, 7, 13, 0.74);
+  border: 1px solid var(--line);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.compare-left {
+  left: var(--gutter);
+  text-align: left;
+}
+
+.compare-right {
+  right: var(--gutter);
+  text-align: right;
+}
+
+.compare-year {
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.compare-left .compare-year {
+  color: var(--ink-mid);
+}
+
+.compare-count {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.compare-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid rgba(219, 233, 243, 0.55);
+  outline: none;
+  cursor: ew-resize;
+}
+
+.compare-line:focus-visible {
+  border-left-color: var(--accent);
+}
+
+.compare-handle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(219, 233, 243, 0.7);
+  border-radius: 50%;
+  background: rgba(4, 7, 13, 0.82);
+}
+
+.compare-handle::before,
+.compare-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-top: 1px solid var(--ink);
+  border-right: 1px solid var(--ink);
+}
+
+.compare-handle::before {
+  left: 8px;
+  transform: translateY(-50%) rotate(-135deg);
+}
+
+.compare-handle::after {
+  right: 8px;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.compare-hint {
+  position: absolute;
+  bottom: calc(var(--hud-h) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 10px;
+  background: rgba(4, 7, 13, 0.7);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 对照模式期间收起页面的其它层：全屏比较只需要两半画面。
+   用 visibility 而不是 display，退出时不需要重排整页。 */
+body.is-comparing .hud,
+body.is-comparing #story,
+body.is-comparing .legend-layer,
+body.is-comparing .instrument-layer,
+body.is-comparing .anno-layer,
+body.is-comparing .scale-bar,
+body.is-comparing .probe,
+body.is-comparing .pick-card,
+body.is-comparing .pick-marker {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.is-comparing {
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .compare-head {
+    top: calc(var(--hud-h) + 10px);
+  }
+  .compare-side {
+    top: calc(var(--hud-h) + 60px);
+    padding: 5px 8px;
+    /* 窄屏上两侧卡片各占一半宽度，左右各留半条中缝；
+       读数在 390px 下放不下一行，允许折成两行，避免被 overflow 裁掉。 */
+    max-width: calc(50vw - var(--gutter) - 6px);
+  }
+  .compare-year {
+    font-size: 16px;
+  }
+  .compare-count {
+    font-size: 9px;
+    white-space: normal;
+    line-height: 1.45;
+  }
+  .compare-hint {
+    white-space: normal;
+    width: calc(100vw - var(--gutter) * 2);
+    text-align: center;
+    line-height: 1.5;
+  }
+  .compare-handle {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* ============================================================================
+   讲解模式
+   ----------------------------------------------------------------------------
+   一条压在下沿的字幕条，八个关键画面自动推进。它不遮住球体与右栏仪器：
+   桌面端贴左栏下沿，窄屏才占满宽度并暂时收起仪器层。
+   ========================================================================== */
+.tour-bar {
+  position: fixed;
+  z-index: 28;
+  left: var(--gutter);
+  bottom: calc(var(--hud-h) + 18px);
+  width: min(560px, 46vw);
+  padding: 10px 12px 11px;
+  background: rgba(4, 7, 13, 0.9);
+  border: 1px solid var(--line-strong);
+  backdrop-filter: blur(10px);
+}
+
+.tour-bar[hidden] {
+  display: none;
+}
+
+.tour-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.tour-counter {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.tour-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tour-note {
+  margin: 5px 0 9px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-mid);
+}
+
+.tour-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tour-btn {
+  min-height: 26px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-mid);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tour-btn:hover,
+.tour-btn:focus-visible {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+
+.tour-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tour-play[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.tour-progress {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.tour-dot {
+  width: 14px;
+  height: 2px;
+  background: var(--line-strong);
+}
+
+.tour-dot[data-state='past'] {
+  background: var(--ink-faint);
+}
+
+.tour-dot[data-state='active'] {
+  background: var(--accent);
+}
+
+/* 讲解条运行时把左栏正文抬起来一点：两者在同一块区域，
+   正文末尾会被字幕条压住。 */
+body.is-touring #story .rail {
+  transform: translateY(-2.2rem);
+  transition: transform 0.5s var(--ease);
+}
+
+@media (max-width: 1080px) {
+  .tour-bar {
+    left: var(--gutter);
+    right: var(--gutter);
+    width: auto;
+    bottom: calc(var(--hud-h) + 10px);
+  }
+  body.is-touring #story .rail {
+    transform: none;
+  }
+  /* 窄屏没有并排空间：讲解时先收起仪器层，退出后恢复 */
+  body.is-touring .instrument-layer {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.is-touring #story .rail {
+    transition: none;
+  }
+}
+
+/* 图例里的两个演示模式入口 */
+.legend-modes {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.legend-mode-btn {
+  flex: 1 1 0;
+  min-height: 24px;
+  font-size: 10px;
+}
+
+.legend-mode-btn[data-active='true'] {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: rgba(79, 195, 247, 0.1);
+}
+
+/* 年份轴播放条 */
+.year-play {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.year-play-btn {
+  flex: none;
+  min-height: 26px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink-mid);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+
+.year-play-btn:hover,
+.year-play-btn:focus-visible {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+
+.year-play-btn[data-playing='true'] {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.year-play-btn:focus-visible,
+.year-play-speed:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.year-play-speed {
+  flex: none;
+  min-height: 26px;
+  min-width: 36px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.year-play-speed:hover {
+  color: var(--ink);
+}
+
+.year-play-note {
+  min-width: 0;
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 620px) {
+  .year-play-note {
+    display: none;
   }
 }

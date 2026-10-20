@@ -3,7 +3,7 @@
   "source": "CelesTrak",
   "count": 15934,
   "failed": 0,
-  "stride": 7,
+  "stride": 8,
   "fields": [
     "ecefX",
     "ecefY",
@@ -11,7 +11,8 @@
     "launchYear",
     "orbitClass",
     "perigeeKm",
-    "category"
+    "category",
+    "noradId"
   ],
   "orbitClassLabels": [
     "LEO",

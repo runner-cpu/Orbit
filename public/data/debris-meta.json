@@ -2,7 +2,7 @@
   "epoch": "2026-10-13T00:00:00.000Z",
   "source": "CelesTrak",
   "total": 2676,
-  "stride": 7,
+  "stride": 8,
   "fields": [
     "ecefX",
     "ecefY",
@@ -10,7 +10,8 @@
     "perigeeKm",
     "apogeeKm",
     "inclDeg",
-    "groupId"
+    "groupId",
+    "noradId"
   ],
   "groupKeys": [
     "fengyun1c",

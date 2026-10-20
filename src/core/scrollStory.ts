@@ -42,6 +42,16 @@ export interface ScrollStory {
   readonly state: StepState;
   /** 跳转到某一步 */
   goTo(id: string): void;
+  /** 立即跳转（不带平滑滚动），用于首屏锚点落位 */
+  jumpTo(id: string): void;
+  /** 调试用：各步的文档滚动区间，用于核对锚点落位 */
+  debugRanges(): {
+    id: string;
+    top: number;
+    height: number;
+    triggerTop: number;
+    triggerHeight: number;
+  }[];
   /** 结束时清理 */
   dispose(): void;
 }
@@ -149,12 +159,71 @@ export function createScrollStory(steps: StoryStep[]): ScrollStory {
     get state() {
       return state;
     },
+    /** 调试用：当前各步的滚动区间，用于核对锚点落位。 */
+    debugRanges() {
+      return ranges.map((r, i) => ({
+        id: steps[i]?.id ?? '',
+        top: Math.round(r.top),
+        height: Math.round(r.height),
+        triggerTop: Math.round(r.triggerTop),
+        triggerHeight: Math.round(r.triggerHeight),
+      }));
+    },
     goTo(id: string) {
       const i = steps.findIndex((s) => s.id === id);
       if (i < 0) return;
       const r = ranges[i];
       if (!r) return;
-      window.scrollTo({ top: r.triggerTop - window.innerHeight * 0.5, behavior: 'smooth' });
+      window.scrollTo({ top: Math.max(0, r.triggerTop - window.innerHeight * 0.5), behavior: 'smooth' });
+    },
+    jumpTo(id: string) {
+      const target = steps.findIndex((s) => s.id === id);
+      if (target < 0) return;
+      let tries = 0;
+
+      /**
+       * 反复「跳一次、量一次」，直到真的落在目标步上。
+       *
+       * 为什么不一次跳到位：窄屏上每一步的高度取决于当前仪器面板的高度
+       * （面板排在正文下方，正文要整体让开它），而面板随场景换高换矮。
+       * 滚到目标附近之后场景才激活、面板才换高，后面所有步的 offset 跟着变，
+       * 刚才算出的落点就失效了。实测只按坐标跳一次，手机端会落在目标步前两步。
+       *
+       * 所以收敛判据不看坐标，看步骤下标：只要 computeState 认为已经到了
+       * 目标步就停。次数有上限，避免面板高度与滚动位置互相推挤时无限追。
+       */
+      const step = () => {
+        tries += 1;
+        measure();
+        const r = ranges[target];
+        if (!r) return;
+        // 多走 3 像素：判定线是「滚动量 + 半个视口」，而 scrollY 会被浏览器
+        // 舍入到亚像素。恰好落在 triggerTop 上时，算出来的判定线可能比
+        // triggerTop 小 0.2 像素，于是停在目标步的前一步。3 像素跨过这条线，
+        // 肉眼看不出来，步骤判定却稳定了。
+        //
+        // 窄屏的落点不一样：正文是底部对齐的（CSS 里 align-items: end），
+        // 面板固定在下沿、正文靠 padding 让开它。此时把「步骤顶部」对到
+        // 视口中线，会把正文推到面板背后。改成对齐「步骤底部」，正文就
+        // 回到它的设计位置——面板上方。桌面端仍是顶部对齐到中线。
+        const narrow = window.innerWidth <= 1080;
+        const want = narrow
+          ? Math.max(0, r.triggerTop + r.height - window.innerHeight)
+          : Math.max(0, r.triggerTop - window.innerHeight * 0.5 + 3);
+        // 首屏落位必须瞬时完成：html 上开了 scroll-behavior: smooth，
+        // 平滑滚动会与「图片/字体载入后重排」竞争，实测落点会偏一屏。
+        window.scrollTo({ top: want, behavior: 'instant' });
+        // 两个条件要同时成立：步骤下标对，且真的停在了算出来的位置上。
+        // 只看下标是不够的：落到目标步区间内的任何一点都算「对数」，
+        // 但如果场景切换把后面的步整体推移了，实际位置会差几百像素，
+        // 读者打开锚点链接却看不到那一步的正文。
+        const settled =
+          computeState().index === target && Math.abs(window.scrollY - want) <= 4;
+        if (settled || tries > 12) return;
+        window.setTimeout(step, 160);
+      };
+
+      step();
     },
     dispose() {
       io.disconnect();

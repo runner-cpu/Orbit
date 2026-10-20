@@ -11,7 +11,6 @@
       content="用真实轨道编目数据讲述近地轨道的拥挤程度。数据来源 CelesTrak，历元 2026-10-13。"
     />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <!-- 三维场景层：固定铺满视口，作为整页的背景与主视觉 -->
@@ -33,7 +32,14 @@
     <!-- 顶部仪表条：作品名 / 数据出处 / 视图状态，常驻 -->
     <header class="hud hud-top">
       <div class="hud-cell hud-title">
-        <span class="mark" aria-hidden="true"></span>
+        <svg class="mark" viewBox="0 0 32 32" width="20" height="20" aria-hidden="true" focusable="false">
+          <circle cx="12.6" cy="20.2" r="4.9" fill="#0a1622" stroke="#7fc7e6" stroke-width="1.4" />
+          <path d="M6.2 14.4A9.2 9.2 0 0 1 21.6 14.9" fill="none" stroke="#4fc3f7"
+            stroke-width="1.5" stroke-linecap="round" opacity="0.7" />
+          <path d="M3.2 11.2A13.6 13.6 0 0 1 27 11.7" fill="none" stroke="#ff6b35"
+            stroke-width="3" stroke-linecap="round" />
+          <circle cx="27" cy="11.7" r="1.6" fill="#ff6b35" />
+        </svg>
         <span class="title-cn">轨道之上</span>
         <span class="title-sub">一片正在增厚的碎片带</span>
       </div>
@@ -69,7 +75,48 @@
       文案不在 HTML 里写死，因为其中的数字必须来自当前数据包，
       写成静态文本会出现「改了数据、文案没跟着变」的错位。
     -->
+    <!--
+      场景标注层：高度环、轨道面与短标签。
+      球在底层，标注贴在球上；这一层不接收指针事件，拖动与点选仍然落在画布上。
+      内容由 main.ts 按步骤写入，文字只有「是什么 / 多少」两行。
+    -->
+    <div class="anno-layer" id="anno-layer" aria-hidden="true"></div>
+
+    <!--
+      比例尺：把「屏幕上一段长度 = 多少公里」标出来。
+      它随视距实时换算，读者因此能判断画面里那条轨道离地面多远。
+    -->
+    <div class="scale-bar" id="scale-bar" aria-hidden="true">
+      <span class="scale-rule" id="scale-rule"></span>
+      <span class="scale-label mono" id="scale-label">-</span>
+    </div>
+
+    <!--
+      悬停探针：指针停在球上时，在指针旁报出最近那个点是什么。
+      这是「点选」的低成本预览版：不点也能知道那里有什么。
+    -->
+    <div class="probe" id="probe" hidden aria-hidden="true">
+      <span class="probe-dot"></span>
+      <span class="probe-label mono" id="probe-label">-</span>
+    </div>
+
     <main id="story"></main>
+
+    <!--
+      常驻图例与筛选回显。
+      颜色是本页唯一的编码通道（类别、碎片群、时间切片），没有图例时
+      读者只能靠猜。图例本身可点：点一行就只看那一类，同一块区域先给
+      编码说明、再给验证入口。筛选项会在这里回显，并给一键清除。
+    -->
+    <div class="legend-layer" id="legend-layer"></div>
+
+    <!--
+      点选标记：读者点中某个点后，在球上留一个回环，镜头转动时它跟着那个点走。
+      没有它时读数卡一关，读者就再也找不到刚才看的是哪一个。
+    -->
+    <div class="pick-marker" id="pick-marker" hidden aria-hidden="true">
+      <span class="pick-marker-ring"></span>
+    </div>
 
     <!--
       仪器层：每章挂一台带刻度、可操作的仪器（高度尺、年份轴、直方图等）。
@@ -104,11 +151,18 @@
           <span class="field-val mono" id="readout-points">-</span>
         </span>
         <span class="field">
-          <span class="field-key">地点尺寸</span>
+          <span class="field-key">像素比</span>
           <span class="field-val mono" id="readout-quality">-</span>
         </span>
       </div>
     </footer>
+
+    <!--
+      屏幕阅读器公告区：页面的大部分状态变化发生在 canvas 与 SVG 里，
+      读屏软件读不到。这里只放「当前做了什么筛选」这一类短句，
+      用 aria-live=polite 播报，不打断读者。
+    -->
+    <p class="sr-only" id="sr-status" role="status" aria-live="polite"></p>
 
     <noscript>
       <div class="noscript">

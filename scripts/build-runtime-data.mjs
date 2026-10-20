@@ -204,11 +204,28 @@ async function main() {
   const cosG = Math.cos(gmst);
   const sinG = Math.sin(gmst);
 
-  // 每个对象 7 个 float32：地固坐标 xyz + 发射年 + 轨道类别 + 近地点 + 对象类别。
-  // 位置用三维坐标而非经纬度，避免极区收敛与高轨分辨率问题。
-  const FIELDS = ['ecefX', 'ecefY', 'ecefZ', 'launchYear', 'orbitClass', 'perigeeKm', 'category'];
+  // 每个对象 8 个 float32：地固坐标 xyz + 发射年 + 轨道类别 + 近地点 + 对象类别
+  // + NORAD 编号。位置用三维坐标而非经纬度，避免极区收敛与高轨分辨率问题。
+  //
+  // NORAD 编号为什么放进二进制：读数卡要报「这是编目里的哪一个」。
+  // 之前卡片显示的是行号，标签却写着「编号」，读者会当成真实编目号。
+  // 编号最大 69998，远小于 float32 能精确表示的 2^24，因此用 float 无损。
+  const FIELDS = [
+    'ecefX',
+    'ecefY',
+    'ecefZ',
+    'launchYear',
+    'orbitClass',
+    'perigeeKm',
+    'category',
+    'noradId',
+  ];
   const stride = FIELDS.length;
   const buf = new Float32Array(catalog.length * stride);
+  // 名称单独写一个按行对齐的文本文件，并在首次点选时才取。
+  // 放进二进制要按 4 字节对齐，24 字符的名称平均只用到 13 字节，浪费一半；
+  // 文本文件 gzip 后约 53 KB，且不占首屏关键路径。
+  const catalogNames = [];
 
   let failed = 0;
   let satcatMatched = 0;
@@ -217,8 +234,9 @@ async function main() {
   const catHist = {};
 
   for (let i = 0; i < catalog.length; i += 1) {
-    const { line1, line2 } = catalog[i];
+    const { name, line1, line2 } = catalog[i];
     const o = i * stride;
+    catalogNames.push(name);
 
     const rec = satellite.twoline2satrec(line1, line2);
     const pv = satellite.propagate(rec, EPOCH);
@@ -249,9 +267,14 @@ async function main() {
     const cat = categoryOf(sc);
     buf[o + 6] = cat;
     catHist[CATEGORY_LABEL[cat]] = (catHist[CATEGORY_LABEL[cat]] || 0) + 1;
+    buf[o + 7] = Number.parseInt(norad, 10);
   }
 
   await writeFile(path.join(OUT, 'catalog.bin'), Buffer.from(buf.buffer));
+  // 名称按行存放，行号与 catalog.bin 的对象顺序一一对应。
+  // 用换行而不是逗号分隔：CelesTrak 的对象名里确实有逗号
+  // （例如 "OBJECT A, ..."），逗号分隔会拆错列；名称本身不含换行。
+  await writeFile(path.join(OUT, 'catalog-names.txt'), catalogNames.join('\n') + '\n', 'utf8');
   await writeFile(
     path.join(OUT, 'catalog-meta.json'),
     JSON.stringify(
@@ -285,7 +308,16 @@ async function main() {
   // 因此位置同样在构建期解算。这样运行期不需要携带 TLE 解析与 SGP4 调用，
   // 首屏也少一次 400 KB 的网络等待。
   const GROUP_KEY = ['fengyun1c', 'cosmos2251', 'iridium33'];
-  const DEBRIS_FIELDS = ['ecefX', 'ecefY', 'ecefZ', 'perigeeKm', 'apogeeKm', 'inclDeg', 'groupId'];
+  const DEBRIS_FIELDS = [
+    'ecefX',
+    'ecefY',
+    'ecefZ',
+    'perigeeKm',
+    'apogeeKm',
+    'inclDeg',
+    'groupId',
+    'noradId',
+  ];
   const debrisStride = DEBRIS_FIELDS.length;
 
   const debrisLines = [];
@@ -348,6 +380,7 @@ async function main() {
         debrisBuf[oi + 4] = el.apogee;
         debrisBuf[oi + 5] = el.incl;
         debrisBuf[oi + 6] = gi;
+        debrisBuf[oi + 7] = Number.parseInt(o.line2.slice(2, 7).trim(), 10);
         k += 1;
       }
     }
@@ -376,6 +409,7 @@ async function main() {
 
   // ---------- 报告 ----------
   const catalogBin = (await stat(path.join(OUT, 'catalog.bin'))).size;
+  const catalogNamesBytes = (await stat(path.join(OUT, 'catalog-names.txt'))).size;
   const debrisBin = (await stat(path.join(OUT, 'debris.bin'))).size;
   const debrisTle = (await stat(path.join(OUT, 'debris.tle'))).size;
   const gz = async (p) => gzipSync(await readFile(p), { level: 9 }).length;
@@ -385,6 +419,9 @@ async function main() {
   console.log(`  解算失败      ${failed}`);
   console.log(`  状态匹配      ${satcatMatched.toLocaleString()} / ${catalog.length.toLocaleString()}`);
   console.log(`  二进制体积    ${(catalogBin / 1024).toFixed(1)} KB (未压缩)`);
+  console.log(
+    `  名称附表      ${(catalogNamesBytes / 1024).toFixed(1)} KB (未压缩，首次点选才取)`
+  );
   console.log('  轨道类型      ' + Object.entries(classHist).map(([k, v]) => `${k} ${v}`).join(' / '));
   console.log('  对象类别      ' + Object.entries(catHist).map(([k, v]) => `${k} ${v}`).join(' / '));
   const years = Object.keys(yearHist).map(Number).filter((y) => y > 0).sort();
@@ -401,9 +438,12 @@ async function main() {
   console.log(`  TLE 留档      ${(debrisTle / 1024).toFixed(1)} KB (未压缩)`);
 
   console.log('\n=== 运行时数据总量 ===');
-  const gzTotal = (await gz(path.join(OUT, 'catalog.bin'))) + (await gz(path.join(OUT, 'debris.bin')));
+  const gzTotal =
+    (await gz(path.join(OUT, 'catalog.bin'))) + (await gz(path.join(OUT, 'debris.bin')));
+  const gzNames = await gz(path.join(OUT, 'catalog-names.txt'));
   console.log(`  未压缩        ${((catalogBin + debrisBin) / 1024).toFixed(0)} KB`);
   console.log(`  gzip 后       ${(gzTotal / 1024).toFixed(0)} KB`);
+  console.log(`  名称附表 gzip ${(gzNames / 1024).toFixed(0)} KB (按需) `);
   console.log('\n已写入 public/data/');
 }
 

@@ -180,6 +180,11 @@ export class PointLayer {
         // 时间推进：aLifetime ≤ uHorizon 的点已经消失。
         // 0 = 全部显示，1 = 到时间轴末端。第五章的时间滑块改这个值。
         uHorizon: { value: 0 },
+        // 年份残影：第二章专用。打开后，发射年晚于 uYearMax 的点不消失，
+        // 而是以极低的亮度留在画面上，读者于是能看见「还没出现的那一批」
+        // 随着年份推进一点点被点亮，而不是凭空冒出一堆点。
+        uGhost: { value: 0 },
+        uGhostOpacity: { value: 0.13 },
       },
       vertexShader: /* glsl */ `
         attribute float aCategory;
@@ -192,6 +197,7 @@ export class PointLayer {
 
         varying vec3 vColor;
         varying float vEmphasis;
+        varying float vGhost;
 
         uniform float uBaseSizePx;
         uniform float uReferenceDistance;
@@ -204,6 +210,7 @@ export class PointLayer {
         uniform vec2 uMetricRange;
         uniform vec2 uGroupRange;
         uniform float uHorizon;
+        uniform float uGhost;
         uniform vec3 uUniformColor;
         uniform vec3 uPalette[5];
 
@@ -231,15 +238,21 @@ export class PointLayer {
           //
           // 用距离原点外推而不是直接丢掉顶点：gl_PointSize 置 0 在某些驱动上
           // 仍会画出一个像素；推到裁剪空间之外是各平台一致的做法。
-          bool visible =
-            aYear <= uYearMax &&
+          bool yearOk = aYear <= uYearMax;
+          // 除年份外的其余筛选：残影判断要用到它，因此单独拆出来
+          bool otherOk =
             aMetric >= uMetricRange.x &&
             aMetric <= uMetricRange.y &&
             aGroup >= uGroupRange.x &&
             aGroup <= uGroupRange.y &&
             aLifetime > uHorizon;
+          bool visible = yearOk && otherOk;
 
-          if (!visible) {
+          // 残影只对「仅被年份挡住」的点生效。如果同时被高度、分组或寿命筛掉，
+          // 说明当前这一步根本不该看到它，留下的淡色点会变成噪音。
+          vGhost = (uGhost > 0.5 && !yearOk && otherOk) ? 1.0 : 0.0;
+
+          if (!visible && vGhost < 0.5) {
             gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
             gl_PointSize = 0.0;
             return;
@@ -251,14 +264,19 @@ export class PointLayer {
           // 透视缩放：距离越远，屏幕上越小
           float px = uBaseSizePx * aSize * (uReferenceDistance / dist);
           px = clamp(px, uMinSizePx, uMaxSizePx);
+          // 残影压到 0.55 倍大小：同尺寸的淡点仍然会被读成「存在」，
+          // 缩小之后它退到背景，读者第一眼看到的是已经点亮的那一批。
+          if (vGhost > 0.5) px *= 0.55;
           gl_PointSize = px * uPixelRatio;
         }
       `,
       fragmentShader: /* glsl */ `
         varying vec3 vColor;
         varying float vEmphasis;
+        varying float vGhost;
 
         uniform float uOpacity;
+        uniform float uGhostOpacity;
 
         void main() {
           // 把方点修成圆点，边缘做一次软过渡
@@ -267,8 +285,11 @@ export class PointLayer {
           if (d > 0.25) discard;
           float core = 1.0 - smoothstep(0.05, 0.25, d);
           // 强调的点给一个更实的核心，边缘更利落
-          float alpha = uOpacity * (0.55 + 0.45 * vEmphasis) * core;
-          gl_FragColor = vec4(vColor, alpha);
+          float a = uOpacity * (0.55 + 0.45 * vEmphasis) * core;
+          // 残影走自己的不透明度，不受类别强调影响：它表达的是「尚未发生」，
+          // 与「是否被选中」不是同一件事，两者相乘会让它彻底看不见。
+          if (vGhost > 0.5) a = uGhostOpacity * core;
+          gl_FragColor = vec4(vColor, a);
         }
       `,
       transparent: true,
@@ -351,6 +372,24 @@ export class PointLayer {
   }
 
   /**
+   * 年份残影开关。
+   *
+   * 打开后，被 uYearMax 挡住的那部分点不消失，而是以很低的不透明度留在原位。
+   * 第二章需要它：否则读者拖年份轴时看到的是「一片空白里不断冒出新点」，
+   * 无法判断这些点原来就在那里、只是还没发射。留下残影之后，
+   * 「这些位置早就在画面里，只是要等到那一年才亮起来」这件事直接可见。
+   * 其余章节一律关闭，否则筛选失效看起来像渲染错误。
+   */
+  setGhost(v: boolean): void {
+    this.material.uniforms.uGhost.value = v ? 1 : 0;
+  }
+
+  /** 残影的不透明度，供低性能设备调低。 */
+  setGhostOpacity(v: number): void {
+    this.material.uniforms.uGhostOpacity.value = Math.max(0, Math.min(0.4, v));
+  }
+
+  /**
    * 只显示 metric 落在 [lo, hi] 内的点。
    * 第三章按近地点分层、第四章按倾角分层用它。
    * 传 null 取消筛选。
@@ -391,6 +430,11 @@ export class PointLayer {
   /** 当前的年份上限读数，供仪表与调试使用。 */
   get yearMax(): number {
     return this.material.uniforms.uYearMax.value as number;
+  }
+
+  /** 年份残影是否开启，供自动化校验确认第二章的可见状态。 */
+  get ghost(): boolean {
+    return (this.material.uniforms.uGhost.value as number) > 0.5;
   }
 
   /**

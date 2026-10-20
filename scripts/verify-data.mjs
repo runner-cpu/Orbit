@@ -271,6 +271,7 @@ async function main() {
   // 逐点与原始 TLE 对照：按 group 顺序与行顺序一一对应
   let mismatchPerigee = 0;
   let mismatchIncl = 0;
+  let mismatchNorad = 0;
   let groupMismatch = 0;
   let cursor = 0;
   const inclByGroup = new Map();
@@ -285,6 +286,9 @@ async function main() {
       if (Math.abs(df32[o + di('perigeeKm')] - el.perigee) > 0.05) mismatchPerigee += 1;
       if (Math.abs(df32[o + di('inclDeg')] - el.incl) > 0.005) mismatchIncl += 1;
       if (df32[o + di('groupId')] !== gi) groupMismatch += 1;
+      if (df32[o + di('noradId')] !== Number.parseInt(r.line2.slice(2, 7).trim(), 10)) {
+        mismatchNorad += 1;
+      }
       incls.push(df32[o + di('inclDeg')]);
       // 第三章那张图直接从这份数据分箱，因此分箱结果也在这里核一遍。
       // 只有风云一号C 需要核：那一章只画这个群。
@@ -303,6 +307,7 @@ async function main() {
   }
   expectEqual('近地点与根数不一致的点', mismatchPerigee, 0, '个');
   expectEqual('倾角与根数不一致的点', mismatchIncl, 0, '个');
+  expectEqual('编目号与根数不一致的点', mismatchNorad, 0, '个');
   expectEqual('群编号错误的点', groupMismatch, 0, '个');
   expectEqual('点云点数', cursor, debrisMeta.total, '个');
 
@@ -362,6 +367,35 @@ async function main() {
   const idSet = new Set();
   for (const r of catalogRecs) idSet.add(r.line2.slice(2, 7).trim());
   expectEqual('catalog.tle 唯一编号数', idSet.size, catalogRecs.length, '个');
+
+  // 点云里的编目号必须与原始 TLE 逐行对齐：读数卡直接把它显示给读者，
+  // 写错一位，读者拿去 CelesTrak 就查不到东西。名称附表同样逐行对齐。
+  let badNorad = 0;
+  for (let i = 0; i < catalogMeta.count; i += 1) {
+    const got = f32[i * s + idx('noradId')];
+    const want = Number.parseInt(catalogRecs[i].line2.slice(2, 7).trim(), 10);
+    if (got !== want) badNorad += 1;
+  }
+  expectEqual('catalog.bin 编目号与 TLE 不一致数', badNorad, 0, '个');
+
+  const nameLines = (await readFile(path.join(PUB, 'catalog-names.txt'), 'utf8')).split(/\r?\n/);
+  if (nameLines[nameLines.length - 1] === '') nameLines.pop();
+  expectEqual('catalog-names.txt 行数', nameLines.length, catalogMeta.count, '行');
+  // 逐行核对名称：原点文件里名称在 line1 的上一行，splitTle 没保留它，
+  // 因此这里重新按同样规则切一遍原文。
+  let badName = 0;
+  const rawLines = (await readFile(path.join(RAW, 'catalog.tle'), 'utf8')).split(/\r?\n/);
+  let nameCursor = 0;
+  for (let i = 0; i < rawLines.length; i += 1) {
+    if (rawLines[i].startsWith('1 ') && rawLines[i + 1]?.startsWith('2 ')) {
+      const prev = rawLines[i - 1];
+      const want = prev && !prev.startsWith('1 ') && !prev.startsWith('2 ') ? prev.trim() : '';
+      if ((nameLines[nameCursor] ?? '') !== want) badName += 1;
+      nameCursor += 1;
+      i += 1;
+    }
+  }
+  expectEqual('名称附表与 TLE 不一致行', badName, 0, '行');
 
   let overlap = 0;
   for (const g of groups) {

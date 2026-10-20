@@ -73,6 +73,14 @@ export function createCameraRig(
 
   let spin = 0;
   let spinAccum = 0;
+  /**
+   * 平滑后的旋转速率。
+   *
+   * 直接用 spin 会在按下瞬间把画面「钉住」，抬起瞬间又突然开始转，
+   * 两次都是速度阶跃。这里让实际速率以较高时间常数追上目标值，
+   * 停与启都只有几十毫秒，读者感觉不到，但画面不会顿一下。
+   */
+  let spinRate = 0;
 
   /**
    * 视口底部被面板占掉的高度（像素）。
@@ -172,6 +180,65 @@ export function createCameraRig(
     settleTimer = 0;
   });
 
+  // 画布要能拿到焦点，键盘操作才有落点。tabIndex 在这里设而不是写在
+  // HTML 上：canvas 默认不可聚焦，忘了设的话下面这段键盘处理永远不触发。
+  canvas.tabIndex = 0;
+  canvas.setAttribute(
+    'aria-label',
+    '三维轨道场景。方向键旋转视角，加减号缩放，0 键复位；用 Tab 切到右侧仪器可筛选对象。'
+  );
+
+  /**
+   * 键盘操作。
+   *
+   * 拖拽与滚轮是鼠标手势，键盘与辅助技术用户没有任何入口能改动视角，
+   * 而「这个球可以转」本身是作品的主要交互之一。方向键一次转 7°、
+   * Shift 加速到 22°；+ / − 缩放；0 或 Home 归位。
+   * 键盘接手时同样置 userActive，于是松手 2.5 秒后镜头会缓缓回到叙事机位，
+   * 不会把视角永远留在读者随手转到的位置。
+   */
+  canvas.addEventListener('keydown', (e) => {
+    const key = e.key;
+    const big = e.shiftKey;
+    const azStep = big ? 0.38 : 0.12;
+    const elStep = big ? 0.3 : 0.1;
+    let handled = true;
+    switch (key) {
+      case 'ArrowLeft':
+        userTarget.azimuth += azStep;
+        break;
+      case 'ArrowRight':
+        userTarget.azimuth -= azStep;
+        break;
+      case 'ArrowUp':
+        userTarget.elevation = Math.max(-1.45, Math.min(1.45, userTarget.elevation + elStep));
+        break;
+      case 'ArrowDown':
+        userTarget.elevation = Math.max(-1.45, Math.min(1.45, userTarget.elevation - elStep));
+        break;
+      case '+':
+      case '=':
+        userTarget.zoom = Math.max(0.28, Math.min(6, userTarget.zoom * 0.9));
+        break;
+      case '-':
+      case '_':
+        userTarget.zoom = Math.max(0.28, Math.min(6, userTarget.zoom * 1.1));
+        break;
+      case '0':
+      case 'Home':
+        userTarget.azimuth = 0;
+        userTarget.elevation = 0;
+        userTarget.zoom = 1;
+        break;
+      default:
+        handled = false;
+    }
+    if (!handled) return;
+    e.preventDefault();
+    userActive = true;
+    settleTimer = 0;
+  });
+
   const tmp = new THREE.Vector3();
   const fwd = new THREE.Vector3();
   const right = new THREE.Vector3();
@@ -179,8 +246,12 @@ export function createCameraRig(
   const focus = new THREE.Vector3();
 
   function update(dt: number) {
-    // 自动旋转：让静止的点云与地表参考系的关系可见
-    spinAccum += spin * dt;
+    // 自动旋转：让静止的点云与地表参考系的关系可见。
+    // 但读者按住拖动时暂停：点云与地球一起转是同一套刚体，
+    // 手上正在对位，画面自己还在漂会让人觉得「拖不住」。
+    // 松手后按 3 倍时间常数缓慢恢复，不出现速度突变。
+    spinRate += ((dragging ? 0 : spin) - spinRate) * (1 - Math.exp(-dt * (dragging ? 18 : 1.6)));
+    spinAccum += spinRate * dt;
 
     // 用户增量向目标缓动
     const k = 1 - Math.exp(-dt * 7);

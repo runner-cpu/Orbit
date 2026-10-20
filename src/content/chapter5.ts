@@ -209,9 +209,63 @@ export const CHAPTER_FIVE_STEPS: StepCopy[] = [
           从而形成一个自我维持的过程。本作只引用这一机制本身，
           不复述任何具体年份的预测，那类预测依赖大量本作未建模的参数。
         </p>`, '依据与机制')}
-      ${nextCue('数据与方法')}
+      ${nextCue('四条结论')}
     `;
     },
+  },
+  {
+    id: 'conclusion',
+    nav: '结论',
+    scene: 'recap',
+    pinRatio: 1,
+    render: (f) => `
+      <div class="chapter-mark"><b>结论</b><span>四件可以被复核的事</span></div>
+      <h2>四条结论</h2>
+      <p class="lead">
+        每一条都对应前面某一节的画面，点开可以回去看它是怎么算出来的。
+      </p>
+      <div class="conclusions">
+        <button class="conclusion" type="button" data-jump="not-located">
+          <span class="conclusion-n mono">01</span>
+          <span class="conclusion-body">
+            <span class="conclusion-h">画面比编目更乐观</span>
+            <span class="conclusion-t">在轨 ${int(f.cataloguedInOrbit)} 个，能算出位置的只有 ${int(f.located)} 个。</span>
+          </span>
+        </button>
+        <button class="conclusion" type="button" data-jump="growth-steps">
+          <span class="conclusion-n mono">02</span>
+          <span class="conclusion-body">
+            <span class="conclusion-h">增长不是发射驱动的</span>
+            <span class="conclusion-t">几次解体事件各自一次添了上千个，比平常一年的增量高一个量级。</span>
+          </span>
+        </button>
+        <button class="conclusion" type="button" data-jump="decay-bands">
+          <span class="conclusion-n mono">03</span>
+          <span class="conclusion-body">
+            <span class="conclusion-h">高度决定能不能被清掉</span>
+            <span class="conclusion-t">400 公里以下清掉 ${fixed(bandShare(f, '400 km 以下'))}%，750 公里以上基本没动。</span>
+          </span>
+        </button>
+        <button class="conclusion" type="button" data-jump="decay-projection">
+          <span class="conclusion-n mono">04</span>
+          <span class="conclusion-body">
+            <span class="conclusion-h">时间只把问题压进更窄的一层</span>
+            <span class="conclusion-t">两百年后剩下的，八成以上仍在 750 公里以上。</span>
+          </span>
+        </button>
+      </div>
+      <p class="try">也可以从顶部刻度或链接直接跳到任一节。</p>
+      ${fold(`
+        <p>
+          这四条不是四个独立的观点，而是同一条证据链上的四步：
+          先确认画面只覆盖了编目的一部分（第 01 条），
+          再说明这一部分是怎么变成今天这个样子的（第 02 条），
+          然后用实测的清除速度区分「会掉」与「不会掉」（第 03 条），
+          最后把速度外推到两百年（第 04 条）。
+          每一步的原始数字都能用 <code>npm run verify</code> 复算。
+        </p>`)}
+      ${nextCue('数据与方法')}
+    `,
   },
 ];
 
