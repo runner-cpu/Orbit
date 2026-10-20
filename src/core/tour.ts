@@ -100,6 +100,18 @@ export function createTour(opts: TourOptions): Tour {
     timer = window.setTimeout(() => go(1, 'auto'), DWELL_MS);
   }
 
+  /**
+   * 把字幕条的实际高度写进 --tour-h。
+   *
+   * 窄屏字幕条压在下沿，正文必须整体让开它；而字幕条的高度随说明文字
+   * 换行在 80–130px 之间变化，写死一个常数会在某几步上多让或少让。
+   * 每次换步、窗口变化都重新量一次，CSS 只负责消费这个值。
+   */
+  function publishHeight() {
+    const h = root.hidden ? 0 : root.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--tour-h', `${Math.round(h)}px`);
+  }
+
   function paint() {
     const s = steps[index];
     if (!s) return;
@@ -112,6 +124,8 @@ export function createTour(opts: TourOptions): Tour {
       d.dataset.state = i < index ? 'past' : i === index ? 'active' : 'idle';
     });
     root.dataset.paused = String(paused);
+    // 说明文字长度变了，字幕条高度也会变，排版让出的空间要跟着更新。
+    publishHeight();
   }
 
   function go(delta: number, reason: 'auto' | 'user') {
@@ -128,8 +142,10 @@ export function createTour(opts: TourOptions): Tour {
     }
     if (next < 0) return;
     index = next;
-    goTo(steps[index].id);
+    // 先换字幕再跳转：字幕高度会改动 --tour-h，窄屏上正文的让位空间
+    // 随之变化。顺序反了的话，跳转用的是上一条字幕的高度，落点会差一行。
     paint();
+    goTo(steps[index].id);
     resetTimer();
   }
 
@@ -160,6 +176,8 @@ export function createTour(opts: TourOptions): Tour {
     timer = 0;
     root.hidden = true;
     document.body.classList.remove('is-touring');
+    // 退出后正文不再需要给字幕条让位，变量清掉，避免残留一圈空白。
+    document.documentElement.style.setProperty('--tour-h', '0px');
     opts.onClose?.();
   }
 
@@ -185,6 +203,9 @@ export function createTour(opts: TourOptions): Tour {
   };
   window.addEventListener('wheel', onManualScroll, { passive: true });
   window.addEventListener('touchmove', onManualScroll, { passive: true });
+  window.addEventListener('resize', () => {
+    if (active) publishHeight();
+  });
 
   exitBtn.addEventListener('click', close);
   prevBtn.addEventListener('click', () => {

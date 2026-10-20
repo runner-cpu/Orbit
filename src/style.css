@@ -3147,15 +3147,18 @@ body.is-comparing {
 /* ============================================================================
    讲解模式
    ----------------------------------------------------------------------------
-   一条压在下沿的字幕条，八个关键画面自动推进。它不遮住球体与右栏仪器：
-   桌面端贴左栏下沿，窄屏才占满宽度并暂时收起仪器层。
+   一条压在下沿的字幕条，八个关键画面自动推进。
+   位置放在右下、不再放在左栏下沿：左栏是正文，字幕条无论多高都会压住其中
+   一段（实测 1920×870 下第五章的导语被压掉两行）。右下原本是仪器面板，
+   讲解期间仪器整体收起，这块区域正好空出来；球体在右侧，字幕条只压在
+   画面边缘，不遮住任何要读的字。
    ========================================================================== */
 .tour-bar {
   position: fixed;
   z-index: 28;
-  left: var(--gutter);
+  right: var(--gutter);
   bottom: calc(var(--hud-h) + 18px);
-  width: min(560px, 46vw);
+  width: min(520px, 40vw);
   padding: 10px 12px 11px;
   background: rgba(4, 7, 13, 0.9);
   border: 1px solid var(--line-strong);
@@ -3251,11 +3254,43 @@ body.is-comparing {
   background: var(--accent);
 }
 
-/* 讲解条运行时把左栏正文抬起来一点：两者在同一块区域，
-   正文末尾会被字幕条压住。 */
+/* 讲解模式期间收起两块常驻层：
+   - 左上图例：它是半透明的，正文从它背后经过时字会透出来（实测「铱星33碎片」
+     与「115 / 656」浮在页眉下沿）；讲解时八个步骤的编码固定，图例不再承担
+     解释职责，收起反而让画面更干净。
+   - 右下仪器：讲解时无人操作，且字幕条已经占据右下这一块。
+   两者都用 opacity 过渡，退出讲解后原位恢复，不触发重排。 */
+body.is-touring .legend-layer,
+body.is-touring .instrument-layer {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 图层本身 pointer-events:none，但子面板是 auto。只淡出不禁用的话，
+   看不见的图例与仪器仍会吃掉画面上的点击。 */
+body.is-touring .legend-layer .legend-panel,
+body.is-touring .instrument-layer .instrument-slot {
+  pointer-events: none;
+}
+
+/* 比例尺也贴在右下，会与字幕条叠在同一条水平线上。讲解时视角固定、
+   不靠读者换算距离，先收起，退出后恢复。 */
+body.is-touring .scale-bar {
+  opacity: 0;
+}
+
+/* 讲解时正文不再需要上移：字幕条已经移到右下，且落点由 tourGoTo
+   按「正文顶边贴页眉」计算，任何位移都会让实测落点失准。 */
 body.is-touring #story .rail {
-  transform: translateY(-2.2rem);
-  transition: transform 0.5s var(--ease);
+  transform: none;
+}
+
+/* 讲解是节选演示：折叠的「依据」与「下一节」提示不属于讲解词，
+   留着只会把正文顶出可视区（1366×768 实测正文压到页脚 HUD 上）。
+   桌面与窄屏一视同仁地收起，退出讲解后恢复。 */
+body.is-touring .step .fold,
+body.is-touring .step .next-cue {
+  display: none;
 }
 
 @media (max-width: 1080px) {
@@ -3265,19 +3300,10 @@ body.is-touring #story .rail {
     width: auto;
     bottom: calc(var(--hud-h) + 10px);
   }
-  body.is-touring #story .rail {
-    transform: none;
-  }
-  /* 窄屏没有并排空间：讲解时先收起仪器层，退出后恢复 */
-  body.is-touring .instrument-layer {
-    opacity: 0;
-    pointer-events: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body.is-touring #story .rail {
-    transition: none;
+  /* 窄屏字幕条横贯底部，正文必须整体让开它的实测高度；
+     --tour-h 由讲解条自己写入，换步时随说明文字行数变化。 */
+  body.is-touring .step {
+    padding-bottom: calc(var(--hud-h) + var(--tour-h, 0px) + 24px);
   }
 }
 

@@ -44,6 +44,14 @@ export interface ScrollStory {
   goTo(id: string): void;
   /** 立即跳转（不带平滑滚动），用于首屏锚点落位 */
   jumpTo(id: string): void;
+  /**
+   * 重新测量所有步骤的文档区间。
+   *
+   * 讲解模式会在运行时改变步骤高度（收起折叠块、给窄屏正文让出字幕条），
+   * 这些变化不一定会触发 IntersectionObserver。调用方显式重测一次，
+   * 否则步骤判定会停在旧的文档坐标上，画面与正文对不上。
+   */
+  remeasure(): void;
   /** 调试用：各步的文档滚动区间，用于核对锚点落位 */
   debugRanges(): {
     id: string;
@@ -229,6 +237,9 @@ export function createScrollStory(steps: StoryStep[]): ScrollStory {
       io.disconnect();
       window.removeEventListener('resize', onResize);
       listeners.clear();
+    },
+    remeasure() {
+      measure();
     },
   };
 }

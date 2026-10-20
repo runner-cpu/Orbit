@@ -710,17 +710,86 @@ async function main(): Promise<void> {
   //
   // 八个关键画面，每 7 秒推进一格。字幕只给定性描述，数字留在页面里，
   // 这样数据更新时讲解词不会过期。
+  //
+  // 落点不能直接用 story.goTo：它把「步骤顶部」对到视口中线，长段落
+  // 会有一半伸到页眉与字幕条之间（第五章「清除速度按高度分层」实测
+  // 正文底部被字幕条压住 100px，上一节的图例行还残留在页眉下沿）。
+  // 这里改成对「正文块」定位：
+  //   桌面：正文顶边落在页眉下方 16px，整块正文自上而下排；
+  //   窄屏：正文底边落在字幕条上方 16px（窄屏正文本来就是底部对齐）。
+  // 窄屏场景切换会改变仪器面板高度，进而改变后续步骤的文档位置，
+  // 所以落位后再量一次，必要时瞬时校正。
+  let tourNavToken = 0;
+  function tourGoTo(id: string): void {
+    const token = ++tourNavToken;
+    // 讲解模式会收起折叠块、改变正文让位高度，步骤在文档里的区间随之变化。
+    // 先重测再算落点，否则读到的还是上一节的高度，滚动位置与步骤判定会错位。
+    story.remeasure();
+    const step = document.getElementById(`step-${id}`);
+    const rail = step?.querySelector<HTMLElement>('.rail');
+    if (!step || !rail) {
+      story.goTo(id);
+      return;
+    }
+
+    /** 当前布局下，正文块应该让滚动停在哪。 */
+    const target = () => {
+      const hud = document.querySelector<HTMLElement>('.hud-top');
+      const hudBottom = hud ? hud.getBoundingClientRect().bottom : 60;
+      const r = rail.getBoundingClientRect();
+      if (window.innerWidth <= 1080) {
+        const bar = document.querySelector<HTMLElement>('.tour-bar');
+        const barTop =
+          bar && !bar.hidden ? bar.getBoundingClientRect().top : window.innerHeight - 120;
+        return Math.max(0, r.bottom + window.scrollY + 16 - barTop);
+      }
+      return Math.max(0, r.top + window.scrollY - hudBottom - 16);
+    };
+
+    // 用瞬时滚动而不是平滑滚动：页面主线程要跑三维渲染（答辩机器上实测
+    // 10fps 左右），浏览器的平滑滚动会被拖成三到四秒，讲解条 7 秒的节拍
+    // 里有一半时间停在两页之间。镜头本身有插值过渡，硬切页面看起来仍是
+    // 一次连贯的运镜，而不像被拽走。
+    window.scrollTo({ top: target(), behavior: 'instant' });
+
+    // 场景切换会改仪器面板高度，后面所有步骤的文档位置随之整体平移，
+    // 原先算出的落点会差几十像素。连续几拍按同一套规则复量：只有偏差
+    // 超过 6px 才补一次瞬时滚动，避免落定后还在微动。
+    let tries = 0;
+    const settle = () => {
+      if (token !== tourNavToken || !tourRef?.active) return;
+      const want = target();
+      if (Math.abs(window.scrollY - want) > 6) {
+        window.scrollTo({ top: want, behavior: 'instant' });
+      }
+      tries += 1;
+      if (tries < 5) window.setTimeout(settle, 220);
+    };
+    window.setTimeout(settle, 220);
+  }
+
   tourRef = createTour({
     steps: TOUR_STEPS,
-    goTo: (id) => story.goTo(id),
+    goTo: (id) => tourGoTo(id),
     onOpen: () => {
       if (compare.active) compare.close();
       closePickCard?.();
       legend.setMode('tour');
+      // 讲解时图例与仪器收起、折叠块隐藏，步骤高度会变。两种变化都不会
+      // 触发 IntersectionObserver 的重测，必须显式重量一次文档区间；
+      // 否则步骤判定仍按旧坐标走，画面会停在上一节。
+      requestAnimationFrame(() => {
+        story.remeasure();
+        reportBottomInset();
+      });
       announce('讲解模式：按左右方向键切换画面，空格暂停，Esc 退出。');
     },
     onClose: () => {
       legend.setMode(null);
+      requestAnimationFrame(() => {
+        story.remeasure();
+        reportBottomInset();
+      });
       announce('已退出讲解模式，可以继续自由滚动。');
     },
   });
@@ -907,6 +976,10 @@ async function main(): Promise<void> {
     // 对照模式已经把相机抬到全景并隐藏了整块仪器层。
     // 这里再按仪器面板报一次，会把球重新顶上去，中缝两半就不居中了。
     if (compareActive) return;
+    // 讲解模式下图例与仪器都收起了（CSS 只改 opacity），它们仍占着原来的
+    // 矩形，标注若照旧避让就会留下一块看不见的禁区。改为只避让页眉页脚
+    // 和字幕条本身。
+    const touring = document.body.classList.contains('is-touring');
     const rects: { left: number; top: number; right: number; bottom: number }[] = [];
     for (const sel of ['.hud-top', '.hud-bottom']) {
       const el = document.querySelector<HTMLElement>(sel);
@@ -917,11 +990,26 @@ async function main(): Promise<void> {
     }
 
     // 左上角的图例也是固定面板。它比标注层高一层，标签压在它下面会丢字。
-    const legendRect = legend?.visibleRect();
-    if (legendRect) rects.push(legendRect);
+    if (!touring) {
+      const legendRect = legend?.visibleRect();
+      if (legendRect) rects.push(legendRect);
+    }
+
+    // 字幕条压在右下角，球边缘的标注会正好落在它后面。它比标注层高，
+    // 只能让标注自己让开。
+    if (touring) {
+      const bar = document.querySelector<HTMLElement>('.tour-bar');
+      if (bar && !bar.hidden) {
+        const r = bar.getBoundingClientRect();
+        rects.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+      }
+    }
 
     const layer = instrumentLayer;
-    if (!layer) {
+    if (!layer || touring) {
+      rig.setBottomInset(0);
+      document.documentElement.style.setProperty('--instrument-h', '0px');
+      document.documentElement.style.setProperty('--instrument-inset', '0px');
       annotations.setAvoidRects(rects);
       return;
     }
