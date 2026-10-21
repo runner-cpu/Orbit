@@ -419,6 +419,28 @@ async function main() {
   expectEqual('坐标越界点数', badCoord, 0, '个');
   console.log(`        坐标点总数 ${pts.toLocaleString()}`);
 
+  // 岛屿覆盖：只画国界时，整岛同属一国的海岸线会被整体丢掉，
+  // 表现为菲律宾、日本、英国一带球面空白。这里按经纬框抽查，
+  // 每个框内都必须有海岸线点。
+  const islandBoxes = [
+    { name: '菲律宾', lon: [116, 127], lat: [4, 21] },
+    { name: '日本', lon: [129, 146], lat: [30, 46] },
+    { name: '英国', lon: [-11, 2], lat: [49, 61] },
+    { name: '新西兰', lon: [166, 179], lat: [-48, -34] },
+    { name: '印尼', lon: [95, 141], lat: [-11, 6] },
+  ];
+  const islandHits = islandBoxes.map((b) => {
+    let n = 0;
+    for (const line of coast.lines) {
+      for (const [lon, lat] of line) {
+        if (lon >= b.lon[0] && lon <= b.lon[1] && lat >= b.lat[0] && lat <= b.lat[1]) n += 1;
+      }
+    }
+    return `${b.name} ${n}`;
+  });
+  const uncovered = islandBoxes.filter((_, i) => Number(islandHits[i].split(' ').pop()) === 0);
+  expectEqual('主要岛屿海岸线均有覆盖', uncovered.length, 0, islandHits.join(' / '));
+
   // ---------- 8. 历史序列 public/data/history.json ----------
   //
   // 第二、五章的数字全部来自这个文件。这里从 SATCAT 原始 CSV 重算一遍，

@@ -143,7 +143,7 @@ export function renderMethods(f: Figures, specs: MethodSpec[]): string {
               </li>
               <li>
                 <strong>数据管线与可核验性。</strong>从原始 TLE 到页面读数的每一步
-                都有脚本，79 项交叉核对全部通过。这是本作区别于「一张好看的图」
+                都有脚本，80 项交叉核对全部通过。这是本作区别于「一张好看的图」
                 的地方。
               </li>
               <li>
@@ -353,8 +353,8 @@ export function renderMethods(f: Figures, specs: MethodSpec[]): string {
               <li>五个章节、20 个叙事步骤，每步一句结论、一台可操作仪器、一个可点的数据块。</li>
               <li>${int(f.located)} 个编目对象与 ${int(f.debrisTotal)} 个碎片的三维点云，构建期 SGP4 解算，运行期只改筛选常量。</li>
               <li>七台仪器：对象构成尺、高度剖面尺、年份轴、近地点直方图、碎片群选择器、轨道面转盘、时间滑块。</li>
-              <li>球上标注、比例尺、悬停探针、点选读数卡、常驻图例与筛选回显、章节锚点。</li>
-              <li>79 项离线交叉核对脚本与 12 项页面内自检，全部通过。</li>
+              <li>球上标注、比例尺、悬停探针、点选读数卡、筛选回显条、章节锚点。</li>
+              <li>80 项离线交叉核对脚本与 12 项页面内自检，全部通过。</li>
               <li>桌面 1440×900 与手机 390×844 实测：标注不越界、不压面板与页眉页脚，读数卡不出界。</li>
               <li>键盘可达：方向键旋转、加减号缩放、0 复位、仪器可用方向键与 Home/End 操作、Esc 撤销筛选。</li>
             </ul>
@@ -395,7 +395,7 @@ export function renderMethods(f: Figures, specs: MethodSpec[]): string {
                 轨道数据：CelesTrak 公开发布的 GP 轨道根数与 SATCAT 编目，
                 可自由使用。来源 https://celestrak.org
               </li>
-              <li>海岸线：Natural Earth 1:110m，公有领域</li>
+              <li>海岸线：Natural Earth 1:50m（经 world-atlas 打包，0.1° 抽稀），公有领域</li>
               <li>三维渲染：three.js，MIT License</li>
               <li>轨道解算：satellite.js，MIT License</li>
               <li>等宽字体：JetBrains Mono，SIL Open Font License 1.1</li>
