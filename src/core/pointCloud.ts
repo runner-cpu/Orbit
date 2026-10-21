@@ -63,6 +63,16 @@ export interface PointLayerOptions {
    */
   metrics?: Float32Array;
   /**
+   * 第二条辅助量。碎片层用它筛倾角（第一条给近地点）。
+   * 编目层不用，传了也不会启用。
+   */
+  metrics2?: Float32Array;
+  /**
+   * 逐点轨道类型（0=LEO, 1=GEO, 2=HEO, 3=MEO, 4=OTHER）。
+   * 自由探索按轨道类型筛选时用；与类别一样走位掩码。
+   */
+  orbits?: Float32Array;
+  /**
    * 逐点分组号，配合 setGroupRange 做筛选。
    *
    * 为什么不复用 metrics 那一条通道：第三章要同时表达两件事，
@@ -144,6 +154,14 @@ export class PointLayer {
       'aLifetime',
       new THREE.BufferAttribute(opts.lifetimes ?? new Float32Array(count).fill(1), 1)
     );
+    this.geometry.setAttribute(
+      'aMetric2',
+      new THREE.BufferAttribute(opts.metrics2 ?? new Float32Array(count).fill(0), 1)
+    );
+    this.geometry.setAttribute(
+      'aOrbit',
+      new THREE.BufferAttribute(opts.orbits ?? new Float32Array(count).fill(-1), 1)
+    );
     // 手动管理包围球：位置会被整体替换，让 three 自动计算会产生额外开销
     this.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), SCENE_EARTH_RADIUS * 120);
 
@@ -173,8 +191,15 @@ export class PointLayer {
         uDim: { value: 0 },
         // 年份上限：只显示发射年 ≤ 该值的点。默认 +∞ 表示不筛选。
         uYearMax: { value: Number.POSITIVE_INFINITY },
+        // 年份下限：只显示发射年 ≥ 该值的点。默认 -∞ 表示不筛选。
+        // 自由探索的年份区间用上下两限，叙事模式只改上限（下限保持 -∞）。
+        uYearMin: { value: Number.NEGATIVE_INFINITY },
         // 辅助量筛选区间，默认全开
         uMetricRange: { value: new THREE.Vector2(-1e9, 1e9) },
+        // 第二条辅助量（碎片倾角）的筛选区间，默认全开
+        uMetric2Range: { value: new THREE.Vector2(-1e9, 1e9) },
+        // 轨道类型位掩码：-1 = 不筛
+        uOrbitMask: { value: -1 },
         // 分组筛选区间，默认全开（-1 的分组号不落在任何区间里时也不会被误筛）
         uGroupRange: { value: new THREE.Vector2(-1e9, 1e9) },
         // 类别位掩码：-1 = 不按类别筛，>=0 时第 n 位表示「第 n 类显示」。
@@ -201,6 +226,8 @@ export class PointLayer {
         attribute float aMetric;
         attribute float aGroup;
         attribute float aLifetime;
+        attribute float aMetric2;
+        attribute float aOrbit;
 
         varying vec3 vColor;
         varying float vEmphasis;
@@ -214,7 +241,10 @@ export class PointLayer {
         uniform float uCategoryMix;
         uniform float uDim;
         uniform float uYearMax;
+        uniform float uYearMin;
         uniform vec2 uMetricRange;
+        uniform vec2 uMetric2Range;
+        uniform float uOrbitMask;
         uniform vec2 uGroupRange;
         uniform float uGroupMask;
         uniform float uCategoryMask;
@@ -247,13 +277,19 @@ export class PointLayer {
           //
           // 用距离原点外推而不是直接丢掉顶点：gl_PointSize 置 0 在某些驱动上
           // 仍会画出一个像素；推到裁剪空间之外是各平台一致的做法。
-          bool yearOk = aYear <= uYearMax;
+          bool yearOk = aYear <= uYearMax && aYear >= uYearMin;
           // 分组位掩码：只对 debris 层生效（catalog 的 aGroup 为 -1，
           // 且永远不会打开掩码）。2^group 用 pow 实现，避免依赖整型位运算。
           bool categoryMaskOk = true;
           if (uCategoryMask >= 0.0) {
             categoryMaskOk =
               mod(floor(uCategoryMask / pow(2.0, aCategory)), 2.0) > 0.5;
+          }
+          bool orbitMaskOk = true;
+          if (uOrbitMask >= 0.0) {
+            orbitMaskOk =
+              aOrbit >= 0.0 &&
+              mod(floor(uOrbitMask / pow(2.0, aOrbit)), 2.0) > 0.5;
           }
           bool groupMaskOk = true;
           if (uGroupMask >= 0.0) {
@@ -265,12 +301,19 @@ export class PointLayer {
           bool otherOk =
             aMetric >= uMetricRange.x &&
             aMetric <= uMetricRange.y &&
+            aMetric2 >= uMetric2Range.x &&
+            aMetric2 <= uMetric2Range.y &&
             aGroup >= uGroupRange.x &&
             aGroup <= uGroupRange.y &&
             aLifetime > uHorizon &&
             groupMaskOk &&
-            categoryMaskOk;
+            categoryMaskOk &&
+            orbitMaskOk;
           bool visible = yearOk && otherOk;
+
+          // 残影只对「仅被年份挡住」的点生效。如果同时被高度、分组或寿命筛掉，
+          // 说明当前这一步根本不该看到它，留下的淡色点会变成噪音。
+          vGhost = (uGhost > 0.5 && !yearOk && otherOk) ? 1.0 : 0.0;
 
           // 残影只对「仅被年份挡住」的点生效。如果同时被高度、分组或寿命筛掉，
           // 说明当前这一步根本不该看到它，留下的淡色点会变成噪音。
@@ -396,6 +439,19 @@ export class PointLayer {
   }
 
   /**
+   * 只显示发射年 ≥ year 的点。
+   * 自由探索的年份区间用它与 setYearMax 一起构成上下限；叙事模式不用。
+   */
+  setYearMin(year: number | null): void {
+    this.material.uniforms.uYearMin.value = year ?? Number.NEGATIVE_INFINITY;
+  }
+
+  /** 当前年份下限，供探索面板回读。 */
+  get yearMin(): number {
+    return this.material.uniforms.uYearMin.value as number;
+  }
+
+  /**
    * 年份残影开关。
    *
    * 打开后，被 uYearMax 挡住的那部分点不消失，而是以很低的不透明度留在原位。
@@ -421,6 +477,27 @@ export class PointLayer {
   setMetricRange(lo: number | null, hi: number | null): void {
     const v = this.material.uniforms.uMetricRange.value as THREE.Vector2;
     v.set(lo ?? -1e9, hi ?? 1e9);
+  }
+
+  /** 第二条辅助量（碎片倾角）区间。语义与 setMetricRange 相同。 */
+  setMetric2Range(lo: number | null, hi: number | null): void {
+    const v = this.material.uniforms.uMetric2Range.value as THREE.Vector2;
+    v.set(lo ?? -1e9, hi ?? 1e9);
+  }
+
+  /** 当前第二条辅助量的筛选区间，供探索面板与调试回读。 */
+  get metric2Range(): { lo: number; hi: number } {
+    const v = this.material.uniforms.uMetric2Range.value as THREE.Vector2;
+    return { lo: v.x, hi: v.y };
+  }
+
+  /** 轨道类型位掩码：null = 不筛。 */
+  setOrbitMask(mask: number | null): void {
+    this.material.uniforms.uOrbitMask.value = mask === null ? -1 : Math.max(0, Math.floor(mask));
+  }
+
+  get orbitMask(): number {
+    return this.material.uniforms.uOrbitMask.value as number;
   }
 
   /**

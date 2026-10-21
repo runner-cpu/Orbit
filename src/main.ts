@@ -28,9 +28,8 @@ import { createStarfield } from './core/starfield';
 import { createAnnotationLayer } from './core/annotations';
 import { createOverlayLayer } from './core/overlays';
 import { createLegend, type LegendPayload } from './core/legend';
-import { createCompareMode } from './core/compare';
 import { createTour, type TourStep } from './core/tour';
-import { createExplore } from './core/explore';
+import { createExplore, type ExploreFilters } from './core/explore';
 
 import { buildFigures, type DebrisGroupFigures } from './content/figures';
 import { CHAPTER_ONE_STEPS, type StepCopy } from './content/chapter1';
@@ -214,6 +213,8 @@ async function main(): Promise<void> {
   // 仪器只发「只看 400-600 这一层」，落到着色器上是一次区间比较，
   // 因此这一列必须真的存在，否则筛选条件与 0 比较会把整层点全部藏起来。
   const catalogMetrics = new Float32Array(count);
+  // 轨道类型码（0=LEO,1=GEO,2=HEO,3=MEO,4=OTHER）。自由探索按轨道类型筛选用它。
+  const orbitClasses = new Float32Array(count);
   for (let i = 0; i < count; i += 1) {
     const o = i * stride;
     categories[i] = catalog[o + offset.category];
@@ -221,6 +222,7 @@ async function main(): Promise<void> {
     positions[i * 3 + 1] = catalog[o + offset.y];
     positions[i * 3 + 2] = catalog[o + offset.z];
     catalogMetrics[i] = catalog[o + offset.perigeeKm];
+    orbitClasses[i] = catalog[o + offset.orbitClass];
     // 年份用于第二章的「按时间逐步出现」。没有年份的对象给一个极大的
     // 负数，任何时间切片都会把它们包含进来，它们确实无法定年，
     // 但也不该被静默丢弃。
@@ -238,6 +240,7 @@ async function main(): Promise<void> {
     sizes,
     launchYears,
     metrics: catalogMetrics,
+    orbits: orbitClasses,
     // 点保持小而离散：16,000 个点若各自画大，叠加后会糊成一团。
     // 目标观感是「能数得清的光点」，而不是一片发光的云。
     baseSizePx: 1.35,
@@ -260,6 +263,7 @@ async function main(): Promise<void> {
     sizes,
     launchYears,
     metrics: catalogMetrics,
+    orbits: orbitClasses,
     baseSizePx: 1.5,
     maxSizePx: 4.8,
     referenceDistance: SCENE_EARTH_RADIUS * 4.2,
@@ -281,7 +285,8 @@ async function main(): Promise<void> {
   const dCount = debris.meta.total;
   const dCategories = new Float32Array(dCount);
   const dPositions = new Float32Array(dCount * 3);
-  const dMetrics = new Float32Array(dCount); // 复用为「近地点」，第三、四章按它筛选
+  const dMetrics = new Float32Array(dCount); // 近地点，第三、四章按它筛选
+  const dIncl = new Float32Array(dCount); // 倾角，自由探索按它筛选
   const dSizes = new Float32Array(dCount);
   const dLifetimes = new Float32Array(dCount);
 
@@ -330,6 +335,7 @@ async function main(): Promise<void> {
     dCategories[i] = debris.points[o + debris.offset.groupId];
     const pg = debris.points[o + debris.offset.perigeeKm];
     dMetrics[i] = pg;
+    dIncl[i] = debris.points[o + debris.offset.inclDeg];
     dSizes[i] = 1.15;
     dLifetimes[i] = Number.isFinite(pg) ? lifetimeOf(pg, i) : 1.5;
   }
@@ -339,6 +345,7 @@ async function main(): Promise<void> {
     categories: dCategories,
     sizes: dSizes,
     metrics: dMetrics,
+    metrics2: dIncl,
     // 群号单走一条筛选通道。它与近地点那条互不覆盖：
     // 群由场景表定（第三章只留风云一号C，第四章留两个撞击群），
     // 层由用户在直方图上点，两者要能同时成立。
@@ -527,17 +534,9 @@ async function main(): Promise<void> {
   const story = createScrollStory(storySteps);
   const scenes = createChapterScenes(rig, layer, debrisLayer, globe, history);
   /**
-   * 时间对照模式是否占据画面。
-   *
-   * 对照模式自己控制图层与机位，叙事层在它运行期间必须停止回写场景，
-   * 否则每一次 story.update 都会把镜头与点云拉回当前章节，
-   * 中缝两边就变成同一年的画面。
-   */
-  let compareActive = false;
-  /**
    * 自由探索是否占据画面。
    *
-   * 与对照模式同理：探索期间叙事层不能再把镜头与筛选拉回当前章节，
+   * 探索期间叙事层不能再把镜头与筛选拉回当前章节，
    * 否则读者每动一次筛选都会被下一帧覆盖。
    */
   let exploreActive = false;
@@ -633,90 +632,8 @@ async function main(): Promise<void> {
   // 图例展开/收起会改变它的高度，标注层需要重算避让矩形
   window.addEventListener('orbit:legend-resize', () => reportBottomInset());
 
-  // ---------- 时间对照 ----------
-  //
-  // 对照年份取 COMPARE_PAST_YEAR，而不是更早的 1980。原因在数据本身：
-  // catalog.bin 里 1980 年及以前发射、今天仍有公开根数的对象只剩 13 个，
-  // 左半边会几乎全空，读者会以为是渲染出错。2015 年这一批有 813 个，
-  // 与今天的 15,934 个相比是二十倍差距，密度差在画面上真实可见。
-  // 编目总量仍然从历史序列现取，不写死。
-  const pastAll =
-    figures.historySeries.find((s) => s.year === COMPARE_PAST_YEAR)?.inOrbit ?? 0;
-  // launchCumulative 只收录「当年有发射」的年份，目标年不在其中时直接 find
-  // 会得到 undefined，读数就会显示 0。取最后一条不大于目标年的记录。
-  let pastLocated = 0;
-  for (const r of figures.launchCumulative) {
-    if (r.year > COMPARE_PAST_YEAR) break;
-    pastLocated = r.cumulative;
-  }
-
   let tourRef: ReturnType<typeof createTour> | null = null;
   let exploreRef: ReturnType<typeof createExplore> | null = null;
-
-  const compare = createCompareMode({
-    renderer,
-    scene,
-    rig,
-    layer,
-    pastLayer,
-    labels: {
-      pastYear: COMPARE_PAST_YEAR,
-      nowYear: figures.historyLastYear,
-      pastAll,
-      pastLocated,
-      nowAll: figures.cataloguedInOrbit,
-      nowLocated: figures.located,
-    },
-    onOpen: () => {
-      compareActive = true;
-      // 与讲解/探索互斥：两个全屏模式叠在一起，读者分不清谁在控制页面。
-      exploreRef?.close();
-      tourRef?.close();
-      closePickCard?.();
-      // 从任意章节进入都要回到同一个全景机位，否则左半与右半的构图不同，
-      // 比较的就不是同一张画面。
-      rig.releaseUserControl();
-      rig.setSpin(0);
-      rig.setPose({ azimuth: 0.95, elevation: 0.35, distance: 6.4, screenShift: 0 });
-      rig.setBottomInset(0);
-
-      // 中性色：时间对照要比较的是「有多少」，不是「属于哪一类」。
-      // 两半用同一套编码，颜色差异才不会喧宾夺主。
-      layer.points.visible = true;
-      layer.setYearMax(null);
-      layer.setGhost(false);
-      layer.setMetricRange(null, null);
-      layer.setDim(0);
-      layer.clearEmphasis();
-      layer.setCategoryMix(0.72);
-      layer.setOpacity(0.8);
-      pastLayer.setCategoryMix(0.72);
-      pastLayer.setYearMax(COMPARE_PAST_YEAR);
-      pastLayer.setGhost(false);
-      pastLayer.setOpacity(0.8);
-      debrisLayer.points.visible = false;
-
-      instruments.setMuted(true);
-      legend.setMode('compare');
-      syncModeNav();
-      announce(`时间对照模式：左半是 ${COMPARE_PAST_YEAR} 年及以前发射、今天仍可定位的对象，右半是现在。拖动中缝比较。`);
-    },
-    onClose: () => {
-      compareActive = false;
-      // 重跑当前场景，而不是逐项还原：场景表是画面状态的唯一真相，
-      // 逐项还原迟早会漏掉一个字段（例如类别强调的缓存）。
-      scenes.refresh();
-      scenes.apply(story.state, scenes.currentSceneId);
-      pastLayer.points.visible = false;
-      instruments.setMuted(false);
-      legend.setMode(null);
-      syncModeNav();
-      instruments.update(instrumentPayload());
-      legend.update(legendPayload());
-      reportBottomInset();
-      announce('已退出时间对照，回到当前章节。');
-    },
-  });
 
   // ---------- 讲解模式 ----------
   //
@@ -775,10 +692,8 @@ async function main(): Promise<void> {
     steps: TOUR_STEPS,
     goTo: (id) => tourGoTo(id),
     onOpen: () => {
-      if (compare.active) compare.close();
       exploreRef?.close();
       closePickCard?.();
-      legend.setMode('tour');
       // 讲解时图例与仪器收起、折叠块隐藏，步骤高度会变。两种变化都不会
       // 触发 IntersectionObserver 的重测，必须显式重量一次文档区间；
       // 否则步骤判定仍按旧坐标走，画面会停在上一节。
@@ -790,7 +705,6 @@ async function main(): Promise<void> {
       announce('讲解模式：按左右方向键切换画面，空格暂停，Esc 退出。');
     },
     onClose: () => {
-      legend.setMode(null);
       syncModeNav();
       requestAnimationFrame(() => {
         story.remeasure();
@@ -816,32 +730,51 @@ async function main(): Promise<void> {
     count: c.count,
   }));
 
+  /** 轨道类型：名称与计数都从数据包现取，不写死。 */
+  const EXPLORE_ORBITS = [
+    { code: 0, label: 'LEO', count: catalogMeta.orbitClasses.LEO ?? 0 },
+    { code: 1, label: 'GEO', count: catalogMeta.orbitClasses.GEO ?? 0 },
+    { code: 2, label: 'HEO', count: catalogMeta.orbitClasses.HEO ?? 0 },
+    { code: 3, label: 'MEO', count: catalogMeta.orbitClasses.MEO ?? 0 },
+    { code: 4, label: '其它', count: catalogMeta.orbitClasses.OTHER ?? 0 },
+  ].filter((r) => r.count > 0);
+
   /** 探索里的筛选 → 点云 uniform。面板每次变化调用一次。 */
-  function applyExploreFilters(f: {
-    catalogVisible: boolean;
-    debrisVisible: boolean;
-    categories: Set<number>;
-    band: { lo: number; hi: number } | null;
-    yearMax: number | null;
-    groups: Set<number>;
-    horizonYears: number;
-  }): void {
+  function applyExploreFilters(f: ExploreFilters): void {
     layer.points.visible = f.catalogVisible;
     debrisLayer.points.visible = f.debrisVisible;
 
     // 类别：全选等价于不筛，一个都不选时给掩码 0（什么都不画）。
     // 用掩码而不是强调，因为探索要的是「真的不显示」。
-    const allCats = EXPLORE_CATEGORIES.length;
-    if (f.categories.size >= allCats) layer.setCategoryMask(null);
+    if (f.categories.size >= EXPLORE_CATEGORIES.length) layer.setCategoryMask(null);
     else {
       let mask = 0;
       for (const c of f.categories) mask |= 1 << c;
       layer.setCategoryMask(mask);
     }
 
+    // 轨道类型：与类别同一套位掩码。全选时清掉，避免多一次 uniform 判断。
+    const orbitTotal = EXPLORE_ORBITS.length;
+    if (f.orbits.size >= orbitTotal) layer.setOrbitMask(null);
+    else {
+      let mask = 0;
+      for (const o of f.orbits) mask |= 1 << o;
+      layer.setOrbitMask(mask);
+    }
+
     layer.setMetricRange(f.band ? f.band.lo : null, f.band ? f.band.hi : null);
+    layer.setYearMin(f.yearMin);
     layer.setYearMax(f.yearMax);
-    layer.setGhost(f.yearMax !== null);
+    layer.setGhost(false);
+
+    // 对照开启时，右半（主层）只保留「全量」，左半交给 pastLayer。
+    // pastLayer 的年份上限由渲染时按 wipe 决定，这里只负责把它打开。
+    pastLayer.points.visible = false;
+    pastLayer.setCategoryMask(layer.categoryMask);
+    pastLayer.setOrbitMask(layer.orbitMask);
+    pastLayer.setMetricRange(f.band ? f.band.lo : null, f.band ? f.band.hi : null);
+    pastLayer.setYearMin(f.yearMin);
+    pastLayer.setYearMax(f.compareYear);
 
     if (f.groups.size >= figures.debris.length) debrisLayer.setGroupMask(null);
     else {
@@ -849,49 +782,77 @@ async function main(): Promise<void> {
       for (const g of f.groups) mask |= 1 << g;
       debrisLayer.setGroupMask(mask);
     }
+    debrisLayer.setMetricRange(
+      f.debrisBand ? f.debrisBand.lo : null,
+      f.debrisBand ? f.debrisBand.hi : null
+    );
+    debrisLayer.setMetric2Range(f.incl ? f.incl.lo : null, f.incl ? f.incl.hi : null);
     debrisLayer.setHorizon(f.horizonYears / 200);
     // 探索是一个「看全部数据」的视图，碎片层不按场景群区间筛。
     debrisLayer.setGroupRange(null, null);
-    debrisLayer.setMetricRange(null, null);
+    // 对照是编目层的时间比较，碎片层在这期间让位，避免两组点混在一起。
+    if (f.compare) debrisLayer.points.visible = false;
   }
 
   /**
    * 按探索筛选统计画面里还剩多少。
    *
-   * 与 GPU 的筛选规则保持一致（类别掩码 / 近地点区间 / 年份 / 群掩码 / 寿命），
-   * 否则面板上的数字会和画面里看到的点对不上。
+   * 与 GPU 的筛选规则保持一致（类别掩码 / 轨道掩码 / 近地点 / 年份区间 /
+   * 群掩码 / 倾角 / 寿命），否则面板上的数字会和画面里看到的点对不上。
    */
-  function countExplore(f: {
-    catalogVisible: boolean;
-    debrisVisible: boolean;
-    categories: Set<number>;
-    band: { lo: number; hi: number } | null;
-    yearMax: number | null;
-    groups: Set<number>;
-    horizonYears: number;
-  }): { catalog: number; debris: number } {
+  function countExplore(f: ExploreFilters): { catalog: number; debris: number } {
     let cc = 0;
     if (f.catalogVisible) {
       for (let i = 0; i < count; i += 1) {
         if (!f.categories.has(categories[i])) continue;
+        const oc = Math.round(orbitClasses[i]);
+        if (!f.orbits.has(oc)) continue;
         if (f.band) {
           const p = catalogMetrics[i];
           if (!(p >= f.band.lo && p < f.band.hi)) continue;
         }
-        if (f.yearMax !== null && launchYears[i] > f.yearMax) continue;
+        const y = launchYears[i];
+        if (f.yearMin !== null && y < f.yearMin) continue;
+        if (f.yearMax !== null && y > f.yearMax) continue;
         cc += 1;
       }
     }
     let dc = 0;
-    if (f.debrisVisible) {
+    if (f.debrisVisible && !f.compare) {
       const h = f.horizonYears / 200;
       for (let i = 0; i < dCount; i += 1) {
         if (!f.groups.has(dCategories[i])) continue;
+        if (f.debrisBand) {
+          const p = dMetrics[i];
+          if (!(p >= f.debrisBand.lo && p < f.debrisBand.hi)) continue;
+        }
+        if (f.incl) {
+          const a = dIncl[i];
+          if (!(a >= f.incl.lo && a < f.incl.hi)) continue;
+        }
         if (dLifetimes[i] <= h) continue;
         dc += 1;
       }
     }
     return { catalog: cc, debris: dc };
+  }
+
+  /** 时间对照左半的编目计数：与主层同一套条件，再加「发射年 ≤ 参照年」。 */
+  function countCompareLeft(year: number, f: ExploreFilters): number {
+    let n = 0;
+    for (let i = 0; i < count; i += 1) {
+      if (!f.categories.has(categories[i])) continue;
+      if (!f.orbits.has(Math.round(orbitClasses[i]))) continue;
+      if (f.band) {
+        const p = catalogMetrics[i];
+        if (!(p >= f.band.lo && p < f.band.hi)) continue;
+      }
+      const y = launchYears[i];
+      if (y > year) continue;
+      if (f.yearMin !== null && y < f.yearMin) continue;
+      n += 1;
+    }
+    return n;
   }
 
   exploreRef = createExplore({
@@ -900,6 +861,7 @@ async function main(): Promise<void> {
       max: figures.historyLastYear,
     },
     categoryRows: EXPLORE_CATEGORIES,
+    orbitRows: EXPLORE_ORBITS,
     groupRows: figures.debris.map((g, i) => ({
       id: i,
       label: g.label,
@@ -907,7 +869,23 @@ async function main(): Promise<void> {
       count: g.count,
     })),
     bands: figures.bands.map((b) => ({ label: b.label, lo: b.lo, hi: b.hi })),
+    debrisBands: [
+      { label: '300–500 km', lo: 300, hi: 500 },
+      { label: '500–650 km', lo: 500, hi: 650 },
+      { label: '650–750 km', lo: 650, hi: 750 },
+      { label: '750–850 km', lo: 750, hi: 850 },
+      { label: '850 km 以上', lo: 850, hi: 1300 },
+    ],
+    inclBands: [
+      { label: '0°–30°（近赤道）', lo: 0, hi: 30 },
+      { label: '30°–60°', lo: 30, hi: 60 },
+      { label: '60°–80°', lo: 60, hi: 80 },
+      { label: '80°–90°（极轨）', lo: 80, hi: 90 },
+      { label: '90° 以上（逆行）', lo: 90, hi: 180 },
+    ],
+    compareYears: { min: 1960, max: figures.historyLastYear, initial: COMPARE_PAST_YEAR },
     counts: (f) => countExplore(f),
+    compareLeftCount: (year, f) => countCompareLeft(year, f),
     apply: (f) => applyExploreFilters(f),
     zoom: (factor) => rig.zoomBy(factor),
     resetView: () => rig.resetView(),
@@ -917,7 +895,7 @@ async function main(): Promise<void> {
 
   /** 页眉导航的当前模式回显。三种模式互斥，只有一个亮。 */
   function syncModeNav(): void {
-    const mode = exploreActive ? 'explore' : tourRef?.active ? 'tour' : compare.active ? 'story' : 'story';
+    const mode = exploreActive ? 'explore' : tourRef?.active ? 'tour' : 'story';
     const nav = document.querySelector<HTMLElement>('#mode-nav');
     if (!nav) return;
     for (const b of nav.querySelectorAll<HTMLButtonElement>('.mode-btn')) {
@@ -936,16 +914,17 @@ async function main(): Promise<void> {
     syncModeNav();
 
     if (on) {
-      if (compare.active) compare.close();
       tourRef?.close();
       closePickCard?.();
       // 探索从「全部对象」开始：不继承当前章节的筛选，否则读者一进来
       // 看到的是上一页的残局，会以为面板坏了。
       layer.points.visible = true;
+      layer.setYearMin(null);
       layer.setYearMax(null);
       layer.setGhost(false);
       layer.setMetricRange(null, null);
       layer.setCategoryMask(null);
+      layer.setOrbitMask(null);
       layer.setCategoryMix(0.92);
       layer.setDim(0);
       layer.clearEmphasis();
@@ -953,8 +932,10 @@ async function main(): Promise<void> {
       debrisLayer.setGroupMask(null);
       debrisLayer.setGroupRange(null, null);
       debrisLayer.setMetricRange(null, null);
+      debrisLayer.setMetric2Range(null, null);
       debrisLayer.setCategoryMix(1);
       debrisLayer.setHorizon(0);
+      pastLayer.points.visible = false;
 
       rig.setFreeMode(true);
       rig.setWheelZoom(true);
@@ -968,7 +949,6 @@ async function main(): Promise<void> {
       exploreRef?.reapply();
 
       instruments.setMuted(true);
-      legend.setMode(null);
       legend.update(legendPayload());
       reportBottomInset();
       announce('自由探索：左侧面板可筛类别、高度、年份、碎片群与时间；拖拽旋转，滚轮缩放。');
@@ -977,8 +957,12 @@ async function main(): Promise<void> {
       rig.setWheelZoom(false);
       rig.releaseUserControl();
       layer.setCategoryMask(null);
+      layer.setOrbitMask(null);
+      layer.setYearMin(null);
       layer.setCategoryMix(0.85);
       debrisLayer.setGroupMask(null);
+      debrisLayer.setMetric2Range(null, null);
+      pastLayer.points.visible = false;
       instruments.setMuted(false);
       scenes.refresh();
       scenes.apply(story.state, scenes.currentSceneId);
@@ -987,6 +971,43 @@ async function main(): Promise<void> {
       reportBottomInset();
       announce('已退出自由探索，回到叙事。');
     }
+  }
+
+  /**
+   * 探索里的时间对照渲染。
+   *
+   * 与旧的独立对照模式同一套 scissor 做法，但不再接管整页：
+   * 左半画 pastLayer（≤ 参照年），右半画主层（全量），两半共用同一机位。
+   * 中缝位置由面板滑块给出，面板本身不会被切开。
+   */
+  function exploreRender(): void {
+    if (!exploreRef) return;
+    const st = exploreRef.state();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const x = Math.round(Math.max(1, Math.min(W - 1, st.wipe * W)));
+
+    const autoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.clear();
+    renderer.setScissorTest(true);
+
+    // 左半：参照年及以前
+    layer.points.visible = false;
+    pastLayer.points.visible = true;
+    renderer.setScissor(0, 0, x, H);
+    renderer.render(scene, rig.camera);
+
+    // 右半：全部
+    pastLayer.points.visible = false;
+    layer.points.visible = st.catalogVisible;
+    renderer.setScissor(x, 0, W - x, H);
+    renderer.render(scene, rig.camera);
+
+    renderer.setScissorTest(false);
+    renderer.autoClear = autoClear;
+    layer.points.visible = st.catalogVisible;
+    pastLayer.points.visible = false;
   }
 
   // createExplore 在内部负责 body 类与面板显隐，但图层与相机的布置
@@ -1015,24 +1036,24 @@ async function main(): Promise<void> {
       } else {
         exploreRef?.close();
         tourRef?.close();
-        compare.close();
       }
     });
   });
 
-  window.addEventListener('orbit:compare', () => compare.toggle());
   window.addEventListener('orbit:tour', () => tourRef?.open());
   window.addEventListener('orbit:explore', () => exploreRef?.open());
 
-  // 键盘入口：C 进入/退出时间对照，T 开始讲解。输入框里不触发。
+  // 键盘入口：T 开始讲解，E 进出自由探索。输入框里不触发。
+  // C 保留为「在自由探索里开关时间对照」的快捷键，不再进入独立模式。
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const t = e.target;
     // target 可能是 document（合成事件）或非 Element 节点，先确认再查 closest。
     if (t instanceof Element && t.closest('input, textarea, select, [contenteditable="true"]')) return;
     if (e.key === 'c' || e.key === 'C') {
+      if (!exploreRef?.active) return;
       e.preventDefault();
-      compare.toggle();
+      exploreRef.toggleCompare();
     } else if (e.key === 't' || e.key === 'T') {
       e.preventDefault();
       if (tourRef?.active) tourRef.close();
@@ -1204,9 +1225,6 @@ async function main(): Promise<void> {
    * 标签被压住（impact-arrive 压在页眉下、impact-planes 压在页脚上）。
    */
   function reportBottomInset() {
-    // 对照模式已经把相机抬到全景并隐藏了整块仪器层。
-    // 这里再按仪器面板报一次，会把球重新顶上去，中缝两半就不居中了。
-    if (compareActive) return;
     // 探索模式隐藏了标注与仪器：面板虽仍在 DOM 里（只是 muted），
     // 若照旧按它报净空，球会被顶到画面下半部。探索时球居中即可。
     if (exploreActive) {
@@ -1294,7 +1312,7 @@ async function main(): Promise<void> {
   // 声明之前访问 const（会直接抛 ReferenceError，整页起不来）。
   let closePickCard: (() => void) | null = null;
   story.onStep((state) => {
-    if (compareActive || exploreActive) return;
+    if (exploreActive) return;
     const scene = sceneById.get(state.id) ?? 'establish';
     scenes.apply(state, scene);
 
@@ -1834,8 +1852,7 @@ async function main(): Promise<void> {
     const dt = Math.min(0.1, timer.getDelta());
 
     story.update();
-    // 对照模式下仍需推进相机：进入时 setPose 到全景要有一段平滑过渡。
-    // 叙事层已经被 compareActive 挡住，不会再把机位拉回当前章节。
+    // 探索模式下叙事层已经退场，相机由读者控制；这里只推进插值与自转。
     rig.update(dt);
     starfield.update(dt);
     overlays.update(dt);
@@ -1845,7 +1862,7 @@ async function main(): Promise<void> {
       years: scenes.horizon * 200,
       remaining: remainingAt(scenes.horizon * 200),
     });
-    if (compare.active) compare.render();
+    if (exploreActive && exploreRef?.state().compare) exploreRender();
     else renderer.render(scene, rig.camera);
 
     frames += 1;
@@ -1998,18 +2015,12 @@ async function main(): Promise<void> {
         debrisGroupPicked: scenes.group,
         ghost: layer.ghost,
         legendVisible: Boolean(legend.visibleRect()),
-        compareActive: compare.active,
-        compareWipe: +compare.wipe.toFixed(3),
+        exploreActive,
         tourActive: Boolean(tourRef?.active),
         tourIndex: tourRef?.index ?? -1,
       }),
       goTo: (id: string) => story.goTo(id),
       /** 自动化校验用：直接开关两个演示模式。 */
-      compare: {
-        open: () => compare.open(),
-        close: () => compare.close(),
-        toggle: () => compare.toggle(),
-      },
       tour: {
         open: () => tourRef?.open(),
         close: () => tourRef?.close(),
