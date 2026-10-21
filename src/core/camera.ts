@@ -49,6 +49,24 @@ export interface CameraRig {
   /** 重置手动偏移 */
   releaseUserControl(): void;
   /**
+   * 自由探索模式。
+   *
+   * 打开后不做「停手 2.5 秒缓缓回叙事机位」的收拢：探索时读者转到的角度
+   * 与缩放就是他想看的画面，镜头自己漂回去会让操作像没生效。
+   */
+  setFreeMode(enabled: boolean): void;
+  /**
+   * 普通滚轮直接缩放（不需要 Shift / Ctrl）。
+   *
+   * 只在自由探索里打开：叙事页的滚轮必须留给页面滚动，
+   * 否则读者无法继续往下读。
+   */
+  setWheelZoom(enabled: boolean): void;
+  /** 按倍率缩放（<1 拉近，>1 拉远），供探索面板的按钮使用 */
+  zoomBy(factor: number): void;
+  /** 视角归位：撤掉旋转与缩放偏移，回到当前场景机位 */
+  resetView(): void;
+  /**
    * 告诉相机：视口底部有这么多像素被面板占掉了，球体不要压在上面。
    *
    * 为什么由外部告知而不是相机自己测：占用高度只有 DOM 知道，
@@ -112,6 +130,8 @@ export function createCameraRig(
   const userTarget = { azimuth: 0, elevation: 0, zoom: 1 };
   let userActive = false;
   let dragging = false;
+  let freeMode = false;
+  let wheelZoom = false;
   let lastX = 0;
   let lastY = 0;
   let dragDistance = 0;
@@ -157,12 +177,23 @@ export function createCameraRig(
   };
 
   const onWheel = (e: WheelEvent) => {
-    // 只拦截落在画布上的滚轮：页面本身仍然要能滚动。
-    // 需要缩放时按住 Shift 或 Ctrl，避免与滚动叙事冲突。
-    if (!e.shiftKey && !e.ctrlKey) return;
+    // 自由探索：普通滚轮就是缩放，滚轮不再传递给页面（页面此时已锁滚动）。
+    // 叙事模式：只拦截落在画布上的滚轮，需要缩放时按住 Shift 或 Ctrl，
+    // 避免与滚动叙事冲突。
+    if (!wheelZoom && !e.shiftKey && !e.ctrlKey) return;
     e.preventDefault();
     userActive = true;
-    const factor = 1 + Math.sign(e.deltaY) * 0.09;
+    let factor: number;
+    if (wheelZoom) {
+      // 触控板的 deltaY 可能很小，按 deltaMode 归一后走指数曲线：
+      // 轻推是一小步，重滚是一大步，缩放不会一顿一顿。
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1;
+      const delta = Math.max(-120, Math.min(120, e.deltaY * unit));
+      factor = Math.exp(delta * 0.0012);
+    } else {
+      // 叙事模式的 Shift/Ctrl 缩放保持原样：一格一档，避免误触改变构图。
+      factor = 1 + Math.sign(e.deltaY) * 0.09;
+    }
     userTarget.zoom = Math.max(0.28, Math.min(6, userTarget.zoom * factor));
     settleTimer = 0;
   };
@@ -259,8 +290,9 @@ export function createCameraRig(
     userOffset.elevation += (userTarget.elevation - userOffset.elevation) * k;
     userOffset.zoom += (userTarget.zoom - userOffset.zoom) * k;
 
-    // 手动操作停止 2.5 秒后，自动缓缓回到叙事机位
-    if (userActive && !dragging) {
+    // 手动操作停止 2.5 秒后，自动缓缓回到叙事机位。
+    // 自由探索里不做收拢：读者转到的角度与缩放就是他要看的画面。
+    if (userActive && !dragging && !freeMode) {
       settleTimer += dt;
       if (settleTimer > 2.5) {
         userTarget.azimuth *= 1 - Math.min(1, dt * 0.7);
@@ -353,6 +385,47 @@ export function createCameraRig(
       userTarget.azimuth = 0;
       userTarget.elevation = 0;
       userTarget.zoom = 1;
+      userOffset.azimuth = 0;
+      userOffset.elevation = 0;
+      userOffset.zoom = 1;
+    },
+    setFreeMode(v: boolean) {
+      freeMode = v;
+      // 进入探索时把手动增量归零，机位从当前场景的构图开始，
+      // 而不是把上一章节残留的旋转叠加上去。
+      if (v) {
+        userActive = false;
+        userTarget.azimuth = 0;
+        userTarget.elevation = 0;
+        userTarget.zoom = 1;
+        userOffset.azimuth = 0;
+        userOffset.elevation = 0;
+        userOffset.zoom = 1;
+      }
+    },
+    setWheelZoom(v: boolean) {
+      wheelZoom = v;
+    },
+    zoomBy(factor: number) {
+      userActive = true;
+      userTarget.zoom = Math.max(0.28, Math.min(6, userTarget.zoom * factor));
+      settleTimer = 0;
+    },
+    resetView() {
+      // 复位是一次明确的「回到全景」操作，允许瞬时归位：
+      // 自转累积的角度与旋转偏移一起清掉，否则转了一分钟后「复位」
+      // 只会回到当前自转相位，看起来像没生效。
+      spin = 0;
+      spinRate = 0;
+      spinAccum = 0;
+      userActive = false;
+      userTarget.azimuth = 0;
+      userTarget.elevation = 0;
+      userTarget.zoom = 1;
+      userOffset.azimuth = 0;
+      userOffset.elevation = 0;
+      userOffset.zoom = 1;
+      settleTimer = 0;
     },
     setBottomInset(px) {
       bottomInsetPx = Math.max(0, px);

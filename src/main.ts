@@ -30,6 +30,7 @@ import { createOverlayLayer } from './core/overlays';
 import { createLegend, type LegendPayload } from './core/legend';
 import { createCompareMode } from './core/compare';
 import { createTour, type TourStep } from './core/tour';
+import { createExplore } from './core/explore';
 
 import { buildFigures, type DebrisGroupFigures } from './content/figures';
 import { CHAPTER_ONE_STEPS, type StepCopy } from './content/chapter1';
@@ -38,7 +39,7 @@ import { CHAPTER_THREE_STEPS } from './content/chapter3';
 import { CHAPTER_FOUR_STEPS } from './content/chapter4';
 import { CHAPTER_FIVE_STEPS } from './content/chapter5';
 import { renderMethods, methodSpecs } from './content/methods';
-import { createChapterScenes, DEBRIS_PALETTE } from './chapters/scenes';
+import { createChapterScenes, DEBRIS_PALETTE, PALETTE } from './chapters/scenes';
 import { buildAnnotations } from './chapters/annotations';
 import { createAltitudeInstrument } from './chapters/instruments/altitude';
 import { createCompositionInstrument } from './chapters/instruments/composition';
@@ -533,6 +534,13 @@ async function main(): Promise<void> {
    * 中缝两边就变成同一年的画面。
    */
   let compareActive = false;
+  /**
+   * 自由探索是否占据画面。
+   *
+   * 与对照模式同理：探索期间叙事层不能再把镜头与筛选拉回当前章节，
+   * 否则读者每动一次筛选都会被下一帧覆盖。
+   */
+  let exploreActive = false;
 
   // ---------- 球上标注 ----------
   //
@@ -643,6 +651,7 @@ async function main(): Promise<void> {
   }
 
   let tourRef: ReturnType<typeof createTour> | null = null;
+  let exploreRef: ReturnType<typeof createExplore> | null = null;
 
   const compare = createCompareMode({
     renderer,
@@ -660,7 +669,8 @@ async function main(): Promise<void> {
     },
     onOpen: () => {
       compareActive = true;
-      // 与讲解模式互斥：两个全屏/自动模式叠在一起，读者分不清谁在控制页面。
+      // 与讲解/探索互斥：两个全屏模式叠在一起，读者分不清谁在控制页面。
+      exploreRef?.close();
       tourRef?.close();
       closePickCard?.();
       // 从任意章节进入都要回到同一个全景机位，否则左半与右半的构图不同，
@@ -688,6 +698,7 @@ async function main(): Promise<void> {
 
       instruments.setMuted(true);
       legend.setMode('compare');
+      syncModeNav();
       announce(`时间对照模式：左半是 ${COMPARE_PAST_YEAR} 年及以前发射、今天仍可定位的对象，右半是现在。拖动中缝比较。`);
     },
     onClose: () => {
@@ -699,6 +710,7 @@ async function main(): Promise<void> {
       pastLayer.points.visible = false;
       instruments.setMuted(false);
       legend.setMode(null);
+      syncModeNav();
       instruments.update(instrumentPayload());
       legend.update(legendPayload());
       reportBottomInset();
@@ -711,14 +723,13 @@ async function main(): Promise<void> {
   // 八个关键画面，每 7 秒推进一格。字幕只给定性描述，数字留在页面里，
   // 这样数据更新时讲解词不会过期。
   //
-  // 落点不能直接用 story.goTo：它把「步骤顶部」对到视口中线，长段落
-  // 会有一半伸到页眉与字幕条之间（第五章「清除速度按高度分层」实测
-  // 正文底部被字幕条压住 100px，上一节的图例行还残留在页眉下沿）。
-  // 这里改成对「正文块」定位：
-  //   桌面：正文顶边落在页眉下方 16px，整块正文自上而下排；
-  //   窄屏：正文底边落在字幕条上方 16px（窄屏正文本来就是底部对齐）。
-  // 窄屏场景切换会改变仪器面板高度，进而改变后续步骤的文档位置，
-  // 所以落位后再量一次，必要时瞬时校正。
+  // 落点必须让「当前这一步」恰好占满一整屏。
+  //
+  // 普通叙事的正文在整屏里垂直居中，如果把正文顶边对到页眉下方，步骤顶边
+  // 就会跑到视口上方，下一步的开头从底部露出来——读者看到的是「上一页和
+  // 下一页中间」。讲解模式由 CSS 把 .step 改为顶部对齐（一屏一步），这里
+  // 只需把步骤顶边对到视口顶边：视口里就只有当前这一步。
+  // 窄屏字幕条横贯底部，正文底部由 --tour-h 让开，落点同样是步骤顶边。
   let tourNavToken = 0;
   function tourGoTo(id: string): void {
     const token = ++tourNavToken;
@@ -732,18 +743,10 @@ async function main(): Promise<void> {
       return;
     }
 
-    /** 当前布局下，正文块应该让滚动停在哪。 */
+    /** 当前布局下，页面应该滚到哪。 */
     const target = () => {
-      const hud = document.querySelector<HTMLElement>('.hud-top');
-      const hudBottom = hud ? hud.getBoundingClientRect().bottom : 60;
-      const r = rail.getBoundingClientRect();
-      if (window.innerWidth <= 1080) {
-        const bar = document.querySelector<HTMLElement>('.tour-bar');
-        const barTop =
-          bar && !bar.hidden ? bar.getBoundingClientRect().top : window.innerHeight - 120;
-        return Math.max(0, r.bottom + window.scrollY + 16 - barTop);
-      }
-      return Math.max(0, r.top + window.scrollY - hudBottom - 16);
+      const top = step.getBoundingClientRect().top + window.scrollY;
+      return Math.max(0, Math.round(top));
     };
 
     // 用瞬时滚动而不是平滑滚动：页面主线程要跑三维渲染（答辩机器上实测
@@ -773,6 +776,7 @@ async function main(): Promise<void> {
     goTo: (id) => tourGoTo(id),
     onOpen: () => {
       if (compare.active) compare.close();
+      exploreRef?.close();
       closePickCard?.();
       legend.setMode('tour');
       // 讲解时图例与仪器收起、折叠块隐藏，步骤高度会变。两种变化都不会
@@ -782,10 +786,12 @@ async function main(): Promise<void> {
         story.remeasure();
         reportBottomInset();
       });
+      syncModeNav();
       announce('讲解模式：按左右方向键切换画面，空格暂停，Esc 退出。');
     },
     onClose: () => {
       legend.setMode(null);
+      syncModeNav();
       requestAnimationFrame(() => {
         story.remeasure();
         reportBottomInset();
@@ -794,8 +800,229 @@ async function main(): Promise<void> {
     },
   });
 
+
+  // ---------- 自由探索 ----------
+  //
+  // 叙事模式给的是作者排好的路径；自由探索把同一份点云交给读者：
+  // 类别、高度、年份、碎片群、时间五个维度都能自己筛，球可以直接转与缩放。
+  //
+  // 进入时先把画面切到「全部对象、中性机位」，之后不再受叙事层影响
+  // （story.onStep 在 exploreActive 时直接返回）。退出时重跑当前场景，
+  // 因为场景表是画面状态的唯一真相，逐项还原迟早会漏字段。
+  const EXPLORE_CATEGORIES = figures.locatedByCategory.map((c) => ({
+    cat: c.key,
+    label: c.label,
+    color: `#${(PALETTE.category[c.key] ?? 0x5a6b78).toString(16).padStart(6, '0')}`,
+    count: c.count,
+  }));
+
+  /** 探索里的筛选 → 点云 uniform。面板每次变化调用一次。 */
+  function applyExploreFilters(f: {
+    catalogVisible: boolean;
+    debrisVisible: boolean;
+    categories: Set<number>;
+    band: { lo: number; hi: number } | null;
+    yearMax: number | null;
+    groups: Set<number>;
+    horizonYears: number;
+  }): void {
+    layer.points.visible = f.catalogVisible;
+    debrisLayer.points.visible = f.debrisVisible;
+
+    // 类别：全选等价于不筛，一个都不选时给掩码 0（什么都不画）。
+    // 用掩码而不是强调，因为探索要的是「真的不显示」。
+    const allCats = EXPLORE_CATEGORIES.length;
+    if (f.categories.size >= allCats) layer.setCategoryMask(null);
+    else {
+      let mask = 0;
+      for (const c of f.categories) mask |= 1 << c;
+      layer.setCategoryMask(mask);
+    }
+
+    layer.setMetricRange(f.band ? f.band.lo : null, f.band ? f.band.hi : null);
+    layer.setYearMax(f.yearMax);
+    layer.setGhost(f.yearMax !== null);
+
+    if (f.groups.size >= figures.debris.length) debrisLayer.setGroupMask(null);
+    else {
+      let mask = 0;
+      for (const g of f.groups) mask |= 1 << g;
+      debrisLayer.setGroupMask(mask);
+    }
+    debrisLayer.setHorizon(f.horizonYears / 200);
+    // 探索是一个「看全部数据」的视图，碎片层不按场景群区间筛。
+    debrisLayer.setGroupRange(null, null);
+    debrisLayer.setMetricRange(null, null);
+  }
+
+  /**
+   * 按探索筛选统计画面里还剩多少。
+   *
+   * 与 GPU 的筛选规则保持一致（类别掩码 / 近地点区间 / 年份 / 群掩码 / 寿命），
+   * 否则面板上的数字会和画面里看到的点对不上。
+   */
+  function countExplore(f: {
+    catalogVisible: boolean;
+    debrisVisible: boolean;
+    categories: Set<number>;
+    band: { lo: number; hi: number } | null;
+    yearMax: number | null;
+    groups: Set<number>;
+    horizonYears: number;
+  }): { catalog: number; debris: number } {
+    let cc = 0;
+    if (f.catalogVisible) {
+      for (let i = 0; i < count; i += 1) {
+        if (!f.categories.has(categories[i])) continue;
+        if (f.band) {
+          const p = catalogMetrics[i];
+          if (!(p >= f.band.lo && p < f.band.hi)) continue;
+        }
+        if (f.yearMax !== null && launchYears[i] > f.yearMax) continue;
+        cc += 1;
+      }
+    }
+    let dc = 0;
+    if (f.debrisVisible) {
+      const h = f.horizonYears / 200;
+      for (let i = 0; i < dCount; i += 1) {
+        if (!f.groups.has(dCategories[i])) continue;
+        if (dLifetimes[i] <= h) continue;
+        dc += 1;
+      }
+    }
+    return { catalog: cc, debris: dc };
+  }
+
+  exploreRef = createExplore({
+    years: {
+      min: Math.max(1957, figures.historyFirstYear),
+      max: figures.historyLastYear,
+    },
+    categoryRows: EXPLORE_CATEGORIES,
+    groupRows: figures.debris.map((g, i) => ({
+      id: i,
+      label: g.label,
+      color: g.color,
+      count: g.count,
+    })),
+    bands: figures.bands.map((b) => ({ label: b.label, lo: b.lo, hi: b.hi })),
+    counts: (f) => countExplore(f),
+    apply: (f) => applyExploreFilters(f),
+    zoom: (factor) => rig.zoomBy(factor),
+    resetView: () => rig.resetView(),
+    setSpin: (on) => rig.setSpin(on ? 0.035 : 0),
+    onResize: () => reportBottomInset(),
+  });
+
+  /** 页眉导航的当前模式回显。三种模式互斥，只有一个亮。 */
+  function syncModeNav(): void {
+    const mode = exploreActive ? 'explore' : tourRef?.active ? 'tour' : compare.active ? 'story' : 'story';
+    const nav = document.querySelector<HTMLElement>('#mode-nav');
+    if (!nav) return;
+    for (const b of nav.querySelectorAll<HTMLButtonElement>('.mode-btn')) {
+      b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+    }
+  }
+
+  /** 进入 / 退出自由探索时，图层与机位的整体布置。 */
+  function setExploreMode(on: boolean): void {
+    const explore = exploreRef;
+    if (!explore) return;
+    if (on === exploreActive) return;
+    exploreActive = on;
+    document.body.classList.toggle('is-exploring', on);
+
+    syncModeNav();
+
+    if (on) {
+      if (compare.active) compare.close();
+      tourRef?.close();
+      closePickCard?.();
+      // 探索从「全部对象」开始：不继承当前章节的筛选，否则读者一进来
+      // 看到的是上一页的残局，会以为面板坏了。
+      layer.points.visible = true;
+      layer.setYearMax(null);
+      layer.setGhost(false);
+      layer.setMetricRange(null, null);
+      layer.setCategoryMask(null);
+      layer.setCategoryMix(0.92);
+      layer.setDim(0);
+      layer.clearEmphasis();
+      layer.setOpacity(0.9);
+      debrisLayer.setGroupMask(null);
+      debrisLayer.setGroupRange(null, null);
+      debrisLayer.setMetricRange(null, null);
+      debrisLayer.setCategoryMix(1);
+      debrisLayer.setHorizon(0);
+
+      rig.setFreeMode(true);
+      rig.setWheelZoom(true);
+      rig.releaseUserControl();
+      rig.setSpin(0.035);
+      rig.setPose({ azimuth: 0.8, elevation: 0.32, distance: 4.6, screenShift: 0 });
+      rig.setBottomInset(0);
+
+      // 面板可能在打开前就带着读者上次的筛选；上面把图层归了零，
+      // 这里按面板状态重放一次，两边始终一致。
+      exploreRef?.reapply();
+
+      instruments.setMuted(true);
+      legend.setMode(null);
+      legend.update(legendPayload());
+      reportBottomInset();
+      announce('自由探索：左侧面板可筛类别、高度、年份、碎片群与时间；拖拽旋转，滚轮缩放。');
+    } else {
+      rig.setFreeMode(false);
+      rig.setWheelZoom(false);
+      rig.releaseUserControl();
+      layer.setCategoryMask(null);
+      layer.setCategoryMix(0.85);
+      debrisLayer.setGroupMask(null);
+      instruments.setMuted(false);
+      scenes.refresh();
+      scenes.apply(story.state, scenes.currentSceneId);
+      instruments.update(instrumentPayload());
+      legend.update(legendPayload());
+      reportBottomInset();
+      announce('已退出自由探索，回到叙事。');
+    }
+  }
+
+  // createExplore 在内部负责 body 类与面板显隐，但图层与相机的布置
+  // 只在这里知道。用事件把两者接起来，避免探索模块反向依赖主循环。
+  window.addEventListener('orbit:explore-toggle', (e) => {
+    const on = (e as CustomEvent<{ on: boolean }>).detail?.on;
+    setExploreMode(Boolean(on));
+  });
+  // 面板的「关闭」按钮与 Esc 走同一条路。
+  window.addEventListener('orbit:explore', () => {
+    if (!exploreRef) return;
+    if (exploreRef.active) exploreRef.close();
+    else exploreRef.open();
+  });
+
+  // 导航按钮
+  document.querySelectorAll<HTMLButtonElement>('#mode-nav .mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      if (mode === 'explore') {
+        if (exploreRef?.active) exploreRef.close();
+        else exploreRef?.open();
+      } else if (mode === 'tour') {
+        if (tourRef?.active) tourRef.close();
+        else tourRef?.open();
+      } else {
+        exploreRef?.close();
+        tourRef?.close();
+        compare.close();
+      }
+    });
+  });
+
   window.addEventListener('orbit:compare', () => compare.toggle());
   window.addEventListener('orbit:tour', () => tourRef?.open());
+  window.addEventListener('orbit:explore', () => exploreRef?.open());
 
   // 键盘入口：C 进入/退出时间对照，T 开始讲解。输入框里不触发。
   window.addEventListener('keydown', (e) => {
@@ -810,6 +1037,10 @@ async function main(): Promise<void> {
       e.preventDefault();
       if (tourRef?.active) tourRef.close();
       else tourRef?.open();
+    } else if (e.key === 'e' || e.key === 'E') {
+      e.preventDefault();
+      if (exploreRef?.active) exploreRef.close();
+      else exploreRef?.open();
     }
   });
 
@@ -976,6 +1207,15 @@ async function main(): Promise<void> {
     // 对照模式已经把相机抬到全景并隐藏了整块仪器层。
     // 这里再按仪器面板报一次，会把球重新顶上去，中缝两半就不居中了。
     if (compareActive) return;
+    // 探索模式隐藏了标注与仪器：面板虽仍在 DOM 里（只是 muted），
+    // 若照旧按它报净空，球会被顶到画面下半部。探索时球居中即可。
+    if (exploreActive) {
+      rig.setBottomInset(0);
+      document.documentElement.style.setProperty('--instrument-h', '0px');
+      document.documentElement.style.setProperty('--instrument-inset', '0px');
+      annotations.setAvoidRects([]);
+      return;
+    }
     // 讲解模式下图例与仪器都收起了（CSS 只改 opacity），它们仍占着原来的
     // 矩形，标注若照旧避让就会留下一块看不见的禁区。改为只避让页眉页脚
     // 和字幕条本身。
@@ -1054,7 +1294,7 @@ async function main(): Promise<void> {
   // 声明之前访问 const（会直接抛 ReferenceError，整页起不来）。
   let closePickCard: (() => void) | null = null;
   story.onStep((state) => {
-    if (compareActive) return;
+    if (compareActive || exploreActive) return;
     const scene = sceneById.get(state.id) ?? 'establish';
     scenes.apply(state, scene);
 
@@ -1343,6 +1583,12 @@ async function main(): Promise<void> {
   // 反过来的话，读者看着卡片按 Esc，卡片不动、球却突然全亮，会更困惑。
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    // 探索模式是独立的一屏，Esc 先退出它，再谈筛选与卡片。
+    if (exploreActive) {
+      exploreRef?.close();
+      e.preventDefault();
+      return;
+    }
     if (pickCard && !pickCard.hasAttribute('hidden')) {
       hidePick();
       e.preventDefault();
@@ -1768,6 +2014,27 @@ async function main(): Promise<void> {
         open: () => tourRef?.open(),
         close: () => tourRef?.close(),
         state: () => ({ active: Boolean(tourRef?.active), index: tourRef?.index ?? -1 }),
+      },
+      explore: {
+        open: () => exploreRef?.open(),
+        close: () => exploreRef?.close(),
+        state: () => {
+          const s = exploreRef?.state();
+          return {
+            active: Boolean(exploreRef?.active),
+            catalog: s?.catalog ?? 0,
+            debris: s?.debris ?? 0,
+            categories: s ? [...s.categories] : [],
+            groups: s ? [...s.groups] : [],
+            band: s?.band ?? null,
+            yearMax: s?.yearMax ?? null,
+            horizonYears: s?.horizonYears ?? 0,
+            metricRange: layer.metricRange,
+            groupMask: debrisLayer.groupMask,
+            categoryMask: layer.categoryMask,
+            zoom: +rig.distance.toFixed(3),
+          };
+        },
       },
       figures,
       ranges: () => story.debugRanges(),

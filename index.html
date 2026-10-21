@@ -53,6 +53,14 @@
           <span class="field-val mono" id="epoch-value">2026-10-13</span>
         </span>
       </div>
+      <!-- 模式导航：放在页眉中间的空白处。
+           叙事是默认阅读方式；自由探索把页面锁成一屏、由读者自己筛；
+           讲解是答辩用的自动巡游。三者互斥，当前模式在这里回显。 -->
+      <nav class="mode-nav" id="mode-nav" aria-label="视图模式">
+        <button class="mode-btn mono" type="button" data-mode="story" aria-pressed="true">叙事</button>
+        <button class="mode-btn mono" type="button" data-mode="explore" aria-pressed="false">自由探索</button>
+        <button class="mode-btn mono" type="button" data-mode="tour" aria-pressed="false">讲解</button>
+      </nav>
       <div class="hud-cell hud-view">
         <span class="field">
           <span class="field-key">视距</span>

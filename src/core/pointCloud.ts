@@ -177,6 +177,13 @@ export class PointLayer {
         uMetricRange: { value: new THREE.Vector2(-1e9, 1e9) },
         // 分组筛选区间，默认全开（-1 的分组号不落在任何区间里时也不会被误筛）
         uGroupRange: { value: new THREE.Vector2(-1e9, 1e9) },
+        // 类别位掩码：-1 = 不按类别筛，>=0 时第 n 位表示「第 n 类显示」。
+        // 自由探索允许任意勾选组合，与分组掩码同一套做法。
+        uCategoryMask: { value: -1 },
+        // 分组位掩码：-1 = 不按组筛，>=0 时第 n 位表示「第 n 组显示」。
+        // 自由探索允许任意勾选组合（例如同时看第 0 与第 2 组），
+        // 连续的区间表达不了这种组合，因此另开一条掩码通道。
+        uGroupMask: { value: -1 },
         // 时间推进：aLifetime ≤ uHorizon 的点已经消失。
         // 0 = 全部显示，1 = 到时间轴末端。第五章的时间滑块改这个值。
         uHorizon: { value: 0 },
@@ -209,6 +216,8 @@ export class PointLayer {
         uniform float uYearMax;
         uniform vec2 uMetricRange;
         uniform vec2 uGroupRange;
+        uniform float uGroupMask;
+        uniform float uCategoryMask;
         uniform float uHorizon;
         uniform float uGhost;
         uniform vec3 uUniformColor;
@@ -239,13 +248,28 @@ export class PointLayer {
           // 用距离原点外推而不是直接丢掉顶点：gl_PointSize 置 0 在某些驱动上
           // 仍会画出一个像素；推到裁剪空间之外是各平台一致的做法。
           bool yearOk = aYear <= uYearMax;
+          // 分组位掩码：只对 debris 层生效（catalog 的 aGroup 为 -1，
+          // 且永远不会打开掩码）。2^group 用 pow 实现，避免依赖整型位运算。
+          bool categoryMaskOk = true;
+          if (uCategoryMask >= 0.0) {
+            categoryMaskOk =
+              mod(floor(uCategoryMask / pow(2.0, aCategory)), 2.0) > 0.5;
+          }
+          bool groupMaskOk = true;
+          if (uGroupMask >= 0.0) {
+            groupMaskOk =
+              aGroup >= 0.0 &&
+              mod(floor(uGroupMask / pow(2.0, aGroup)), 2.0) > 0.5;
+          }
           // 除年份外的其余筛选：残影判断要用到它，因此单独拆出来
           bool otherOk =
             aMetric >= uMetricRange.x &&
             aMetric <= uMetricRange.y &&
             aGroup >= uGroupRange.x &&
             aGroup <= uGroupRange.y &&
-            aLifetime > uHorizon;
+            aLifetime > uHorizon &&
+            groupMaskOk &&
+            categoryMaskOk;
           bool visible = yearOk && otherOk;
 
           // 残影只对「仅被年份挡住」的点生效。如果同时被高度、分组或寿命筛掉，
@@ -407,6 +431,34 @@ export class PointLayer {
   setGroupRange(lo: number | null, hi: number | null): void {
     const v = this.material.uniforms.uGroupRange.value as THREE.Vector2;
     v.set(lo ?? -1e9, hi ?? 1e9);
+  }
+
+  /**
+   * 按分组位掩码筛选：null = 不筛，否则第 n 位为 1 表示第 n 组可见
+   * （0 表示一组都不显示）。与 setGroupRange 并行使用：区间负责
+   * 「连续的一段」，掩码负责「任意勾选组合」，自由探索的碎片群多选框用后者。
+   */
+  setGroupMask(mask: number | null): void {
+    this.material.uniforms.uGroupMask.value =
+      mask === null ? -1 : Math.max(0, Math.floor(mask));
+  }
+
+  get groupMask(): number {
+    return this.material.uniforms.uGroupMask.value as number;
+  }
+
+  /**
+   * 按类别位掩码筛选：null = 不筛，否则第 n 位为 1 表示第 n 类可见。
+   * 与 emphasizeCategories 的区别：强调只是压暗，掩码是真的不画。
+   * 自由探索的类别多选框要的是后者。
+   */
+  setCategoryMask(mask: number | null): void {
+    this.material.uniforms.uCategoryMask.value =
+      mask === null ? -1 : Math.max(0, Math.floor(mask));
+  }
+
+  get categoryMask(): number {
+    return this.material.uniforms.uCategoryMask.value as number;
   }
 
   /**
